@@ -78,3 +78,17 @@ class Rook : public Piece {
     /// @return a vector of legal moves
     std::vector<Move> getLegalMoves(const Board& board) const override final;
 };
+/// @class Bishop
+/// @brief Derivated classes from Piece
+/// @details Represents a bishop on the board
+class Bishop : public Piece {
+    public:
+    /// @brief Creates a Bishop instance
+    /// @param p starting position
+    /// @param c color (White or Black)
+    Bishop(Position p, Color c);
+    /// @brief get the legal moves of the bishop
+    /// @param board 
+    /// @return an vector of legal moves
+    std::vector<Move> getLegalMoves(const Board& board) const override final;
+};
