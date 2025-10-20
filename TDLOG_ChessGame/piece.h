@@ -92,3 +92,31 @@ class Bishop : public Piece {
     /// @return an vector of legal moves
     std::vector<Move> getLegalMoves(const Board& board) const override final;
 };
+/// @class Knight
+/// @brief Derivated classes from Piece
+/// @details Represents a knight on the board
+class Knight : public Piece {
+    public:
+    /// @brief Creates a Knight instance
+    /// @param p starting position
+    /// @param c color (White or Black)
+    Knight(Position p, Color c);
+    /// @brief get the legal moves of the knight
+    /// @param board
+    /// @return a vector of legal moves
+    std::vector<Move> getLegalMoves(const Board& board) const override final;
+};
+/// @class Pawn
+/// @brief Derivated classes from Piece
+/// @details Represents a pawn on the board
+class Pawn : public Piece {
+    public:
+    /// @brief Creates a Pawn instance
+    /// @param p starting position
+    /// @param c color (White or Black)
+    Pawn(Position p, Color c);
+    /// @brief get the legal moves of the pawn
+    /// @param board
+    /// @return a vector of legal moves
+    std::vector<Move> getLegalMoves(const Board& board) const override final;
+};
