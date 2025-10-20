@@ -16,3 +16,5 @@ PieceName Piece::getName() {
 }
 
 King::King(Position p, Color c) : Piece(p, king, c){};
+
+Queen::Queen(Position p, Color c) : Piece(p, queen, c){};

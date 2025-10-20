@@ -18,3 +18,8 @@ class King : public Piece {
     King(Position p , Color c);
     void MoveTo(Position p) override;
 };
+class Queen : public Piece {
+    public:
+    Queen(Position p, Color c);
+    void MoveTo(Position p) override;
+};
