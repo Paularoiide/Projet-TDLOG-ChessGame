@@ -1,4 +1,15 @@
-#ifndef RULES_H
-#define RULES_H
+#pragma once
 
-#endif // RULES_H
+enum Color {
+    White,
+    Black
+};
+
+enum PieceName {
+    king,
+    queen,
+    rook,
+    bishop,
+    knight,
+    pawn
+};

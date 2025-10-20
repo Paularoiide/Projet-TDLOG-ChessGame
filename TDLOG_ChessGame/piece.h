@@ -1,17 +1,6 @@
 #pragma once
 #include "move.h"
-enum PieceName {
-    king,
-    queen,
-    rook,
-    bishop,
-    knight,
-    pawn
-};
-enum Color {
-    White,
-    Black
-};
+#include "rules.h"
 class Piece {
     Position pos;
     PieceName name;
