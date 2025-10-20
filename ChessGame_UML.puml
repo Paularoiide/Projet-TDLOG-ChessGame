@@ -1,4 +1,4 @@
-@startuml
+@startuml Project_ChessGames
 title UML diagram for the ChessGames Project
 
 package "Base_Game" {
