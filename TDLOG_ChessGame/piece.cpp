@@ -5,13 +5,13 @@ Piece::Piece(Position p, PieceName n, Color c){
     name = n;
     color = c;
 }
-Position Piece::getPosition() {
+Position Piece::getPosition() const {
     return pos;
 }
-Color Piece::getColor() {
+Color Piece::getColor() const {
     return color;
 }
-PieceName Piece::getName() {
+PieceName Piece::getName() const{
     return name;
 }
 
