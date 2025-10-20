@@ -1,0 +1,61 @@
+{
+	"configurations" : 
+	[
+		{
+			"directories" : 
+			[
+				{
+					"build" : ".",
+					"hasInstallRule" : true,
+					"jsonFile" : "directory-.-Debug-fdff9b50034d4da8559c.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.5"
+					},
+					"projectIndex" : 0,
+					"source" : ".",
+					"targetIndexes" : 
+					[
+						0
+					]
+				}
+			],
+			"name" : "Debug",
+			"projects" : 
+			[
+				{
+					"directoryIndexes" : 
+					[
+						0
+					],
+					"name" : "TDLOG_ChessGame",
+					"targetIndexes" : 
+					[
+						0
+					]
+				}
+			],
+			"targets" : 
+			[
+				{
+					"directoryIndex" : 0,
+					"id" : "TDLOG_ChessGame::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-TDLOG_ChessGame-Debug-80156ada6d7613ade45d.json",
+					"name" : "TDLOG_ChessGame",
+					"projectIndex" : 0
+				}
+			]
+		}
+	],
+	"kind" : "codemodel",
+	"paths" : 
+	{
+		"build" : "C:/Users/PaulA/OneDrive/Bureau/Projet Chess/Projet-TDLOG-ChessGame/build-TDLOG_ChessGame-Desktop_Qt_5_15_2_MinGW_64_bit-Debug",
+		"source" : "C:/Users/PaulA/OneDrive/Bureau/Projet Chess/Projet-TDLOG-ChessGame/TDLOG_ChessGame"
+	},
+	"version" : 
+	{
+		"major" : 2,
+		"minor" : 4
+	}
+}
