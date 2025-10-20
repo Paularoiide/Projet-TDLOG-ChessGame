@@ -25,8 +25,7 @@ class Piece {
 };
 
 class King : public Piece {
-    PieceName name = king;
     public:
     King(Position p , Color c);
-    void MoveTo(Position p);
+    void MoveTo(Position p) override;
 };
