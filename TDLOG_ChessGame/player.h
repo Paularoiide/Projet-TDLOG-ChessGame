@@ -1,4 +1,11 @@
-#ifndef PLAYER_H
-#define PLAYER_H
+#pragma once
 
-#endif // PLAYER_H
+#include <iostream>
+
+class Player{
+private :
+    std::string name;
+    bool isAI;
+public:
+
+};
