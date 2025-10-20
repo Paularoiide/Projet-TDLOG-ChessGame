@@ -1,4 +1,6 @@
-#ifndef MOVE_H
-#define MOVE_H
+#pragma once
 
-#endif // MOVE_H
+struct Position {
+    int x;
+    int y;
+};
