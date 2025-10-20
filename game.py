@@ -1,17 +1,21 @@
-import tkinter as tk
+from tkinter import *
 
 
 
-window = tk.Tk()
+menu = Tk()
 
-# label = tk.Label(window, text="test")
-# label.pack()
-
-frame = tk.Frame(window, borderwidth=2, relief = tk.GROOVE)
-frame.pack(side = tk.RIGHT, padx=10, pady=10)
-
-tk.Label(frame, text="Test").pack(padx=10, pady=10)
+menu.title("Chess Prime, the best chess game !")
+menu.geometry('1000x700')
 
 
+frame = Frame(menu, borderwidth=20, relief = GROOVE)
+frame.pack(padx=90, pady=9)
 
-window.mainloop()
+Label(frame, text="Test").pack(padx=10, pady=10)
+
+Label(frame, text = "Shall we play a game?").pack()
+
+
+
+
+menu.mainloop()
