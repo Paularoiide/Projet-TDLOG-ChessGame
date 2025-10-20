@@ -29,10 +29,10 @@ class Piece {
     /// @details This is a pure virtual method that must be implemented by all derivated classes
     /// @param board
     /// @return a vector of legal moves
-    virtual std::vector<Move> getLegalMoves(const Board& board) const;
+    virtual std::vector<Move> getLegalMoves(const Board& board) const = 0; // const = 0 is pure virtual method
     /// @brief set pos to the Position p
     /// @param p new position
-    void setPosition(Position p);
+    void setPosition(Position p) {pos = p;};
     /// @brief Virtual destructor (possibly useless)
     virtual ~Piece() = default;
 };
@@ -50,11 +50,31 @@ class King : public Piece {
     /// @return a vector of legal moves
     std::vector<Move> getLegalMoves(const Board& board) const override final;
 };
+/// @class Queen
+/// @brief Derivated classes from Piece
+/// @details Represents a queen on the board
 class Queen : public Piece {
     public:
+    /// @brief Creates a Queen instance
+    /// @param p starting position
+    /// @param c color (White or Black)
     Queen(Position p, Color c);
+    /// @brief get the legal moves of the queen
+    /// @param board 
+    /// @return a vector of legal moves
+    std::vector<Move> getLegalMoves(const Board& board) const override final;
 };
+/// @class Rook
+/// @brief Derivated classes from Piece
+/// @details Represents a rook on the board
 class Rook : public Piece {
     public:
+    /// @brief Creates a Rook instance
+    /// @param p starting position
+    /// @param c color (White or Black)
     Rook(Position p, Color c);
+    /// @brief get the legal moves of the rook
+    /// @param board 
+    /// @return a vector of legal moves
+    std::vector<Move> getLegalMoves(const Board& board) const override final;
 };
