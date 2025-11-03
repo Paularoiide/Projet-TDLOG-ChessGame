@@ -1,0 +1,84 @@
+@startuml ChessGames_UML
+title UML diagram for the ChessGames Project
+
+package "Base_Game" {
+class Game{
+- Board board
+- Player[2] players
+- Variant variant
+- Color currentTurn
+
++startGame()
++playMove(move : Move)
++isCheckmate(): bool
+}
+
+class Board{
+- int size
+- Square[size][size] squares
++ getPiece(pos : Position)
++ movePiece(from: Position, to: Position)
++ isInside(pos: Position): bool
+}
+
+class Square{
+- Position position
+- Piece* piece
+}
+
+abstract class Piece {
+    # Color color
+    # Position pos
+    # PieceName name
+    + getName() : PieceName
+    + getColor() : Color
+    + getPosition() : Position
+    + getLegalMoves(board: Board): Move[]
+    + setPosition(Position: pos):
+  }
+
+class Pawn
+class Rook
+class Knight
+class Bishop
+class Queen
+class King
+class FairyPieces
+
+Piece <|-- Pawn
+Piece <|-- Rook
+Piece <|-- Knight
+Piece <|-- Bishop
+Piece <|-- Queen
+Piece <|-- King
+Piece <|-- FairyPieces
+
+  class Move {
+    - Position from
+    - Position to
+    - Piece* movedPiece
+    - Piece* capturedPiece
+    - bool isPromotion
+  }
+
+  class Player {
+    - str name
+    - Color color
+    - bool isAI
+    - AI* ai
+    + makeMove(game: Game): Move
+  }
+
+  class Variant {
+    + getInitialSetup(): Map<Position, Piece>
+    + getBoardSize(): Size
+    + isLegalMove(move: Move): bool
+  }
+
+  Game "1" *-- "1" Board
+  Game "2" *-- "1..2" Player
+  Game "1" *-- "1" Variant
+  Board "1" *-- "*" Square
+  Square "1" *-- "0..1" Piece
+}
+@enduml

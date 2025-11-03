@@ -1,4 +1,2 @@
-#ifndef GAME_H
-#define GAME_H
-
-#endif // GAME_H
+#pragma once
+struct Board; // temporary declaration
