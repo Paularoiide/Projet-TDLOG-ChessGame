@@ -1,7 +1,7 @@
 #pragma once
 #include "move.h"
 #include "rules.h"
-#include "game.h"
+#include "board.h"
 #include <vector>
 /// @class Piece
 /// @brief Represents a general piece
