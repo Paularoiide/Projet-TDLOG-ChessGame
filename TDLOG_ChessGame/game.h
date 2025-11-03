@@ -1,11 +1,11 @@
 #pragma once
 #include <vector>
 #include "rules.h"
+#include "board.h"
+#include "variant.h"
 
 class Board; // temporary declaration
 class Piece;
-class Variant;
-class Move;
 class Player;
 
 class Game{

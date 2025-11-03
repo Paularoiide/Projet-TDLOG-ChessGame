@@ -2,7 +2,7 @@
 #include "board.h"
 
 class Variant{
-    std::str name;
+    std::string name;
 
     Board getInitialSetup();
     int getBoardSize();
