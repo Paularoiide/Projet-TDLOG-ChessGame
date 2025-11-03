@@ -10,6 +10,8 @@ add_executable(TDLOG_ChessGame main.cpp
     piece.h
     move.cpp
     move.h
+    board.h
+    board.cpp
     game.cpp
     game.h
     rules.cpp
