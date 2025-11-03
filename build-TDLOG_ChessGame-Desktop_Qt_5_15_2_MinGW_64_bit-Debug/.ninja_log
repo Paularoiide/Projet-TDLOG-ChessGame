@@ -6,3 +6,7 @@
 13	408	7838768481573234	CMakeFiles/TDLOG_ChessGame.dir/rules.cpp.obj	c2a7c9604680cb5d
 1	620	7838760378391007	CMakeFiles/TDLOG_ChessGame.dir/main.cpp.obj	21c7dbb1c80007f5
 491	656	7826626416420645	TDLOG_ChessGame.exe	ad8908fc4c90d94f
+23	207	7838778653672511	CMakeFiles/TDLOG_ChessGame.dir/rules.cpp.obj	c2a7c9604680cb5d
+8	282	7838778654262529	CMakeFiles/TDLOG_ChessGame.dir/move.cpp.obj	9057abf9f7488b03
+28	302	7838778654507808	CMakeFiles/TDLOG_ChessGame.dir/variant.cpp.obj	b782f0c8ea2ce8ca
+13	658	7838778658452808	CMakeFiles/TDLOG_ChessGame.dir/player.cpp.obj	18f8efbb7602baa1

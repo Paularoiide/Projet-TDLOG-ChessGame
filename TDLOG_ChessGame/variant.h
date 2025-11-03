@@ -1,4 +1,10 @@
-#ifndef VARIANT_H
-#define VARIANT_H
+#pragma once
+#include "board.h"
 
-#endif // VARIANT_H
+class Variant{
+    std::str name;
+
+    Board getInitialSetup();
+    int getBoardSize();
+};
+
