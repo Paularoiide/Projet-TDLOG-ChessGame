@@ -17,8 +17,8 @@ class Board{
 - int size
 - Square[size][size] squares
 + getPiece(pos : Position)
-+ movePiece(from: Position, to: Position)
-+ isInside(pos: Position): bool
++ movePiece(m: Move)
++ hasPiece(pos: Position): bool
 }
 
 class Square{
