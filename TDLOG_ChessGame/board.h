@@ -2,10 +2,12 @@
 #include <vector>
 #include "move.h"
 #include "piece.h"
+
 class Square{
     Position position;
     Piece* piece;
     public:
+    Square() : position(Position()), piece(nullptr) {}
     Square(Position p): position(p),piece(nullptr) {}
     Piece* getPiece() const {return piece; } ;
     void setPiece(Piece* p ) {piece = p;};

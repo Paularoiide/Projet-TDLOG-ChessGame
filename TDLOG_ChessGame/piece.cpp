@@ -1,10 +1,9 @@
 #include "piece.h"
 
-Piece::Piece(Position p, PieceName n, Color c){
-    pos = p;
-    name = n;
-    color = c;
-}
+Piece::Piece(Position p, PieceName n, Color c)
+    : pos(p), name(n), color(c)
+{}
+
 Position Piece::getPosition() const {
     return pos;
 }
@@ -17,13 +16,15 @@ PieceName Piece::getName() const{
 
 
 King::King(Position p, Color c) : Piece(p, king, c){};
-
 Queen::Queen(Position p, Color c) : Piece(p, queen, c){};
-
 Rook::Rook(Position p, Color c) : Piece(p, rook, c){};
-
 Bishop::Bishop(Position p, Color c) : Piece(p, bishop, c){};
-
 Knight::Knight(Position p, Color c) : Piece(p, knight, c){};
-
 Pawn::Pawn(Position p, Color c) : Piece(p, pawn, c){};
+
+std::vector<Move> King::getLegalMoves(const Board&) const { return {}; }
+std::vector<Move> Queen::getLegalMoves(const Board&) const { return {}; }
+std::vector<Move> Rook::getLegalMoves(const Board&) const { return {}; }
+std::vector<Move> Bishop::getLegalMoves(const Board&) const { return {}; }
+std::vector<Move> Knight::getLegalMoves(const Board&) const { return {}; }
+std::vector<Move> Pawn::getLegalMoves(const Board&) const { return {}; }
