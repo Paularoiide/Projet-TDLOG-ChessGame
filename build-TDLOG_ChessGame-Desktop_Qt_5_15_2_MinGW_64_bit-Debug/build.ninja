@@ -85,6 +85,12 @@ build CMakeFiles/TDLOG_ChessGame.dir/player.cpp.obj: CXX_COMPILER__TDLOG_ChessGa
   OBJECT_DIR = CMakeFiles\TDLOG_ChessGame.dir
   OBJECT_FILE_DIR = CMakeFiles\TDLOG_ChessGame.dir
 
+build CMakeFiles/TDLOG_ChessGame.dir/variant.cpp.obj: CXX_COMPILER__TDLOG_ChessGame_Debug C$:/Users/PaulA/OneDrive/Bureau/Projet$ Chess/Projet-TDLOG-ChessGame/TDLOG_ChessGame/variant.cpp || cmake_object_order_depends_target_TDLOG_ChessGame
+  DEP_FILE = CMakeFiles\TDLOG_ChessGame.dir\variant.cpp.obj.d
+  FLAGS = -DQT_QML_DEBUG -g -std=gnu++17
+  OBJECT_DIR = CMakeFiles\TDLOG_ChessGame.dir
+  OBJECT_FILE_DIR = CMakeFiles\TDLOG_ChessGame.dir
+
 
 # =============================================================================
 # Link build statements for EXECUTABLE target TDLOG_ChessGame
@@ -93,7 +99,7 @@ build CMakeFiles/TDLOG_ChessGame.dir/player.cpp.obj: CXX_COMPILER__TDLOG_ChessGa
 #############################################
 # Link the executable TDLOG_ChessGame.exe
 
-build TDLOG_ChessGame.exe: CXX_EXECUTABLE_LINKER__TDLOG_ChessGame_Debug CMakeFiles/TDLOG_ChessGame.dir/main.cpp.obj CMakeFiles/TDLOG_ChessGame.dir/piece.cpp.obj CMakeFiles/TDLOG_ChessGame.dir/move.cpp.obj CMakeFiles/TDLOG_ChessGame.dir/game.cpp.obj CMakeFiles/TDLOG_ChessGame.dir/rules.cpp.obj CMakeFiles/TDLOG_ChessGame.dir/player.cpp.obj
+build TDLOG_ChessGame.exe: CXX_EXECUTABLE_LINKER__TDLOG_ChessGame_Debug CMakeFiles/TDLOG_ChessGame.dir/main.cpp.obj CMakeFiles/TDLOG_ChessGame.dir/piece.cpp.obj CMakeFiles/TDLOG_ChessGame.dir/move.cpp.obj CMakeFiles/TDLOG_ChessGame.dir/game.cpp.obj CMakeFiles/TDLOG_ChessGame.dir/rules.cpp.obj CMakeFiles/TDLOG_ChessGame.dir/player.cpp.obj CMakeFiles/TDLOG_ChessGame.dir/variant.cpp.obj
   FLAGS = -DQT_QML_DEBUG -g
   LINK_LIBRARIES = -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32
   OBJECT_DIR = CMakeFiles\TDLOG_ChessGame.dir

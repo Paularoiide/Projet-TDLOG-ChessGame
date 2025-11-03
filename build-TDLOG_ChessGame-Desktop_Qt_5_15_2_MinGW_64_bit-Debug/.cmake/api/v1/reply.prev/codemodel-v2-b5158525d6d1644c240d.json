@@ -7,7 +7,7 @@
 				{
 					"build" : ".",
 					"hasInstallRule" : true,
-					"jsonFile" : "directory-.-Debug-fdff9b50034d4da8559c.json",
+					"jsonFile" : "directory-.-Debug-704f54566a004693c0b4.json",
 					"minimumCMakeVersion" : 
 					{
 						"string" : "3.5"
@@ -40,7 +40,7 @@
 				{
 					"directoryIndex" : 0,
 					"id" : "TDLOG_ChessGame::@6890427a1f51a3e7e1df",
-					"jsonFile" : "target-TDLOG_ChessGame-Debug-80156ada6d7613ade45d.json",
+					"jsonFile" : "target-TDLOG_ChessGame-Debug-eed2563b06ce8a295ade.json",
 					"name" : "TDLOG_ChessGame",
 					"projectIndex" : 0
 				}

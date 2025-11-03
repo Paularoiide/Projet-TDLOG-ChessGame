@@ -15,7 +15,9 @@ add_executable(TDLOG_ChessGame main.cpp
     rules.cpp
     rules.h
     player.cpp
-    player.h)
+    player.h
+    variant.h
+    variant.cpp)
 
 include(GNUInstallDirs)
 install(TARGETS TDLOG_ChessGame
