@@ -5,6 +5,7 @@
 class Square{
     Position position;
     Piece* piece;
+    Square(Position p): position(p),piece(nullptr) {}
 };
 class Board {
     int size;
