@@ -24,6 +24,8 @@ class Board{
 class Square{
 - Position position
 - Piece* piece
++ getPiece(pos: Position)
++ setPiece(pos: Position)
 }
 
 abstract class Piece {
