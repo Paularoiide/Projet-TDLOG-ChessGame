@@ -10,6 +10,7 @@ class Board;
 /// @brief Represents a general piece
 /// @details This is the base class for all pieces (classical chess or not)
 class Piece {
+    protected:
     Position pos;
     PieceName name;
     Color color;
@@ -111,8 +112,9 @@ class Knight : public Piece {
 };
 /// @class Pawn
 /// @brief Derivated classes from Piece
-/// @details Represents a pawn on the board
+/// @details Represents a pawn on the board, added number of move to track if it can move two squares.
 class Pawn : public Piece {
+    int number_of_move = 0;
     public:
     /// @brief Creates a Pawn instance
     /// @param p starting position
