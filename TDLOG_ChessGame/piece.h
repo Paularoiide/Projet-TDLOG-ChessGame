@@ -3,9 +3,6 @@
 #include "rules.h"
 #include "board.h"
 #include <vector>
-
-class Board;
-
 /// @class Piece
 /// @brief Represents a general piece
 /// @details This is the base class for all pieces (classical chess or not)
