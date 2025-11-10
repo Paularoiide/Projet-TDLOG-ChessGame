@@ -1,11 +1,11 @@
 #pragma once
 
-enum Color {
+enum class Color {
     White,
     Black
 };
 
-enum PieceName {
+enum class PieceName {
     king,
     queen,
     rook,
@@ -13,3 +13,7 @@ enum PieceName {
     knight,
     pawn
 };
+
+inline Color opposite(Color c){return c==Color::White ? Color::Black : Color::White;}
+
+

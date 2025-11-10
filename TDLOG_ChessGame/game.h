@@ -11,7 +11,6 @@ class Player;
 class Game{
     Board board;
     std::vector<Player> players;
-    Variant variant;
     Color currentTurn;
 
     void StartGame();

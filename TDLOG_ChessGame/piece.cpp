@@ -15,12 +15,12 @@ PieceName Piece::getName() const{
 }
 
 
-King::King(Position p, Color c) : Piece(p, king, c){};
-Queen::Queen(Position p, Color c) : Piece(p, queen, c){};
-Rook::Rook(Position p, Color c) : Piece(p, rook, c){};
-Bishop::Bishop(Position p, Color c) : Piece(p, bishop, c){};
-Knight::Knight(Position p, Color c) : Piece(p, knight, c){};
-Pawn::Pawn(Position p, Color c) : Piece(p, pawn, c){};
+King::King(Position p, Color c) : Piece(p, PieceName::king, c){};
+Queen::Queen(Position p, Color c) : Piece(p, PieceName::queen, c){};
+Rook::Rook(Position p, Color c) : Piece(p, PieceName::rook, c){};
+Bishop::Bishop(Position p, Color c) : Piece(p, PieceName::bishop, c){};
+Knight::Knight(Position p, Color c) : Piece(p, PieceName::knight, c){};
+Pawn::Pawn(Position p, Color c) : Piece(p, PieceName::pawn, c){};
 
 std::vector<Move> King::getLegalMoves(const Board&) const { return {}; }
 std::vector<Move> Queen::getLegalMoves(const Board&) const { return {}; }

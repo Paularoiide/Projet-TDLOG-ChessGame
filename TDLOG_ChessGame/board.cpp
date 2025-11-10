@@ -1,21 +1,25 @@
 #include "board.h"
 
-using namespace std;
-
-Board::Board(int s){
-    size = s;
-    squares.resize(s*s);
-    for(int i=0; i < size*size;i++){
-        squares[i] = Square(Position(i/size,i%size));
+Board::Board(int size) : size_(size), squares_(size * size) {
+    for (int y = 0; y < size_; ++y) {
+        for (int x = 0; x < size_; ++x) {
+            auto& sq = squares_[y * size_ + x];
+            sq.position = Position{x, y};
+            sq.piece = nullptr;
+        }
     }
 }
-Piece* Board::getPiece(const Position pos) const {
-    return squares[pos.x*size+pos.y].getPiece();
+
+
+void Board::setPiece(Position p, Piece* piece) {
+    if (!isInside(p)) return;
+    at(p).piece = piece;
 }
-void Board::movePiece(Move m){
-    squares[m.to.x*size + m.to.y].setPiece(getPiece(m.from));
-    squares[m.from.x*size + m.to.y].setPiece(nullptr);
-}
-bool Board::hasPiece(Position pos) const {
-    return not (getPiece(pos) == nullptr);
+
+
+void Board::movePiece(Position from, Position to) {
+    if (!isInside(from) || !isInside(to)) return;
+    Piece* p = at(from).piece;
+    at(to).piece = p;
+    at(from).piece = nullptr;
 }
