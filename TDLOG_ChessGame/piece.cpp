@@ -28,12 +28,15 @@ vector<Move> Pawn::getLegalMoves(const Board& board) const {
     Position one_step = pos + Position(0, dir);
 
     // Forward movement
-    if (board.isInside(one_step) && !(board.getPiece(one_step)==nullptr)) {
+    if (board.isInside(one_step) && board.getPiece(one_step) == nullptr)
+
+    {
         moves.emplace_back(pos, one_step);
         // Two-step at start
         int start_rank = (color == Color::White) ? board.size() - 2 : 1;
         Position two_step = pos + Position(0, 2 * dir);
-        if (pos.y == start_rank && board.isInside(two_step) && board.getPiece(one_step)==nullptr) {
+        if (pos.y == start_rank && board.isInside(two_step) && board.getPiece(two_step) == nullptr)
+         {
             moves.emplace_back(pos, two_step);
         }
     }
