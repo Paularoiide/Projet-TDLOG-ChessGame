@@ -1,25 +1,46 @@
 #pragma once
 #include <vector>
-#include "move.h"
+#include <cstdint>
+#include <iostream>
 #include "piece.h"
+#include "move.h"
 
-struct Square {
-    Position position{};
-    Piece* piece{nullptr};
-};
+// Un Bitboard est juste un entier 64 bits non signé
+using Bitboard = uint64_t;
 
 class Board {
-    int size_;
-    std::vector<Square> squares_; // 1D: index = y*size + x
+    // 2 couleurs, 6 types de pièces
+    // bitboards[0][0] = White Pawns, bitboards[1][5] = Black King, etc.
+    Bitboard bitboards_[2][6]; 
+    
+    // Bitboards utilitaires (mis à jour à chaque coup)
+    Bitboard occupancies_[3]; // 0: White, 1: Black, 2: Both
+
 public:
-    explicit Board(int size = 8);
-    int size() const { return size_; }
-    bool isInside(Position p) const { return p.x >= 0 && p.y >= 0 && p.x < size_ && p.y < size_; }
-    Square& at(Position p) { return squares_[p.y * size_ + p.x]; }
-    const Square& at(Position p) const { return squares_[p.y * size_ + p.x]; }
+    Board(); // Initialise la position de départ standard
 
+    // Accesseurs rapides
+    Bitboard getBitboard(Color c, PieceType pt) const { 
+        return bitboards_[static_cast<int>(c)][static_cast<int>(pt)]; 
+    }
 
-    Piece* getPiece(Position p) const { return isInside(p) ? at(p).piece : nullptr; }
-    void setPiece(Position p, Piece* piece);
-    void movePiece(Position from, Position to);
+    PieceType getPieceTypeAt(int square, Color& color) const;
+    bool isSquareOccupied(int square) const;
+
+    // Gestion des bits
+    static void setBit(Bitboard& bb, int square) { bb |= (1ULL << square); }
+    static void popBit(Bitboard& bb, int square) { bb &= ~(1ULL << square); }
+    static bool getBit(Bitboard bb, int square) { return (bb & (1ULL << square)); }
+
+    // Logique de jeu
+    void movePiece(int from, int to);
+    
+    // Génération de coups (Exemple simplifié)
+    std::vector<Move> generateLegalMoves(Color turn) const;
+
+    // Mise à jour des occurences globales
+    void updateOccupancies();
+    
+    // Pour l'affichage
+    void print() const;
 };

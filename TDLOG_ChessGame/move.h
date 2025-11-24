@@ -1,22 +1,20 @@
 #pragma once
-
-class Piece;
+#include <string>
 
 struct Position {
-    int x;
-    int y;
-    Position(int a, int b) : x(a),y(b) {}
-    Position() : x(0), y(0) {}
+    int x, y;
     bool operator==(const Position& o) const { return x == o.x && y == o.y; }
-    bool operator!=(const Position& o) const { return !(*this == o); }
 };
-Position operator+(Position p1, Position p2);
-Position operator-(Position p1, Position p2);
-struct Move { // temporary structure to represent a move
-    Position from;
-    Position to;
-    Piece* movedPiece;
-    Piece* capturedPiece;
-    bool isPromotion;
-    Move(Position p1,Position p2) : from(p1),to(p2) {}
+
+struct Move {
+    int from; // Index 0-63
+    int to;   // Index 0-63
+    // On stocke les infos minimales
+    bool isCapture = false;
+    
+    Move(int f, int t) : from(f), to(t) {}
 };
+
+// Helpers pour conversion
+inline int toIndex(Position p) { return p.y * 8 + p.x; }
+inline Position toPosition(int idx) { return {idx % 8, idx / 8}; }
