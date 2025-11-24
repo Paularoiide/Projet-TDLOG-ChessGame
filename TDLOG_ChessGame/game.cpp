@@ -1,30 +1,42 @@
 #include "game.h"
 #include <iostream>
 
-void Game::startGame() {
-    currentTurn_ = Color::White;
-    // Initialisation déjà faite dans le constructeur de Board
+Game::Game() : board_(), currentTurn_(Color::White) {
+    // Le constructeur de Board initialise déjà les pièces par défaut
 }
 
-bool Game::playMove(const Move& move) {
-    // 1. Vérifier si le coup est dans la liste des coups légaux
-    // (Note: pour la performance pure, on évite parfois cette vérification complète en production, 
-    // mais pour la rigueur ici on le fait).
-    
+void Game::startGame() {
+    // Si vous aviez une méthode board_.reset(), ce serait ici.
+    // Pour l'instant, on s'assure juste que les Blancs commencent.
+    currentTurn_ = Color::White;
+}
+
+bool Game::playMove(const Move& moveReq) {
+    // 1. Générer TOUS les coups légaux pour la couleur qui doit jouer
     std::vector<Move> legalMoves = board_.generateLegalMoves(currentTurn_);
-    bool found = false;
+
+    // 2. Chercher si le coup demandé (moveReq) existe dans la liste des coups légaux
+    bool isLegal = false;
     for (const auto& m : legalMoves) {
-        if (m.from == move.from && m.to == move.to) {
-            found = true; 
-            break; 
+        // On compare uniquement l'origine et la destination
+        // (Le joueur ne précise pas "isCapture", c'est le moteur qui le sait)
+        if (m.from == moveReq.from && m.to == moveReq.to) {
+            isLegal = true;
+            break;
         }
     }
-    
-    // Note temporaire : Comme generateLegalMoves est incomplet dans l'exemple ci-dessus,
-    // on autorise le coup si c'est géométriquement valide pour tester.
-    // En production, décommentez le bloc "if (!found) return false;"
-    
-    board_.movePiece(move.from, move.to);
+
+    // 3. Si le coup n'est pas trouvé, c'est un coup illégal
+    if (!isLegal) {
+        return false;
+    }
+
+    // 4. Si c'est bon, on applique le coup sur le plateau
+    board_.movePiece(moveReq.from, moveReq.to);
+
+    // 5. On change le tour
+    // (Utilisation de la fonction opposite définie dans piece.h)
     currentTurn_ = opposite(currentTurn_);
+
     return true;
 }

@@ -1,21 +1,24 @@
 #pragma once
-#include <memory>
 #include <vector>
 #include "board.h"
-
+#include "piece.h" // Pour l'enum Color
 #include "move.h"
 
 class Game {
     Board board_;
-    Color currentTurn_{Color::White};
-    
+    Color currentTurn_;
+
 public:
-    explicit Game(void* variant = nullptr) : board_() {} 
+    // Constructeur simple
+    Game();
 
+    // Lance ou relance la partie
     void startGame();
-    bool playMove(const Move& move); 
 
+    // Tente de jouer un coup. Retourne true si le coup était valide et joué.
+    bool playMove(const Move& move);
+
+    // Accesseurs
     const Board& board() const { return board_; }
-    Board& board() { return board_; }
     Color currentTurn() const { return currentTurn_; }
 };
