@@ -12,31 +12,40 @@ void Game::startGame() {
 }
 
 bool Game::playMove(const Move& moveReq) {
-    // 1. Générer TOUS les coups légaux pour la couleur qui doit jouer
+    // 1. Générer coups légaux
     std::vector<Move> legalMoves = board_.generateLegalMoves(currentTurn_);
 
-    // 2. Chercher si le coup demandé (moveReq) existe dans la liste des coups légaux
-    bool isLegal = false;
+    // 2. Valider le coup
+    bool found = false;
     for (const auto& m : legalMoves) {
-        // On compare uniquement l'origine et la destination
-        // (Le joueur ne précise pas "isCapture", c'est le moteur qui le sait)
         if (m.from == moveReq.from && m.to == moveReq.to) {
-            isLegal = true;
+            found = true;
             break;
         }
     }
+    if (!found) return false;
 
-    // 3. Si le coup n'est pas trouvé, c'est un coup illégal
-    if (!isLegal) {
-        return false;
-    }
-
-    // 4. Si c'est bon, on applique le coup sur le plateau
+    // 3. Jouer le coup
     board_.movePiece(moveReq.from, moveReq.to);
-
-    // 5. On change le tour
-    // (Utilisation de la fonction opposite définie dans piece.h)
     currentTurn_ = opposite(currentTurn_);
+
+    // 4. Mettre à jour l'état pour le NOUVEAU joueur
+    std::vector<Move> nextMoves = board_.generateLegalMoves(currentTurn_);
+    bool inCheck = board_.isInCheck(currentTurn_);
+
+    if (nextMoves.empty()) {
+        if (inCheck) {
+            state_ = GameState::Checkmate; // Plus de coups + Échec = MAT
+        } else {
+            state_ = GameState::Stalemate; // Plus de coups + Pas échec = PAT
+        }
+    } else {
+        if (inCheck) {
+            state_ = GameState::Check;
+        } else {
+            state_ = GameState::Playing;
+        }
+    }
 
     return true;
 }

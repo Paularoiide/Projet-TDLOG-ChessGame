@@ -43,4 +43,13 @@ public:
     
     // Pour l'affichage
     void print() const;
+
+    // Vérifie si une case donnée est attaquée par une couleur spécifique
+    bool isSquareAttacked(int square, Color attacker) const;
+
+    // Trouve la position du roi d'une certaine couleur
+    int getKingSquare(Color c) const;
+
+    // Indique si le joueur de la couleur 'c' est en échec
+    bool isInCheck(Color c) const;
 };

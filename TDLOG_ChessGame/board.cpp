@@ -244,5 +244,134 @@ std::vector<Move> Board::generateLegalMoves(Color turn) const {
     generateSlidingMoves(PieceType::Queen, rookDirs, 4);
     generateSlidingMoves(PieceType::Queen, bishopDirs, 4);
 
-    return moves;
+    std::vector<Move> realLegalMoves;
+    realLegalMoves.reserve(moves.size());
+
+    for (const auto& move : moves) {
+        // 1. Copier le plateau actuel
+        Board tempBoard = *this; // Copie par valeur (très rapide car juste des entiers)
+
+        // 2. Jouer le coup sur la copie
+        tempBoard.movePiece(move.from, move.to);
+        
+        // 3. Vérifier si mon Roi est en échec après ce coup
+        // (Note: movePiece change updateOccupancies, donc tempBoard est à jour)
+        if (!tempBoard.isInCheck(turn)) {
+            realLegalMoves.push_back(move);
+        }
+    }
+
+    return realLegalMoves;
+}
+
+int Board::getKingSquare(Color c) const {
+    Bitboard kingBB = bitboards_[static_cast<int>(c)][static_cast<int>(PieceType::King)];
+    // __builtin_ctzll est une fonction GCC/Clang rapide pour trouver le premier bit à 1
+    // Si vous êtes sous Windows (MSVC), utilisez _BitScanForward64 ou une boucle
+    if (kingBB == 0) return -1; // Cas d'erreur (pas de roi)
+    return __builtin_ctzll(kingBB); 
+}
+
+bool Board::isInCheck(Color c) const {
+    int kingSq = getKingSquare(c);
+    if (kingSq == -1) return false;
+    return isSquareAttacked(kingSq, opposite(c)); // Est-il attaqué par l'ennemi ?
+}
+
+bool Board::isSquareAttacked(int square, Color attacker) const {
+    Bitboard enemyPawns   = bitboards_[static_cast<int>(attacker)][static_cast<int>(PieceType::Pawn)];
+    Bitboard enemyKnights = bitboards_[static_cast<int>(attacker)][static_cast<int>(PieceType::Knight)];
+    Bitboard enemyKing    = bitboards_[static_cast<int>(attacker)][static_cast<int>(PieceType::King)];
+    Bitboard enemyRooks   = bitboards_[static_cast<int>(attacker)][static_cast<int>(PieceType::Rook)];
+    Bitboard enemyBishops = bitboards_[static_cast<int>(attacker)][static_cast<int>(PieceType::Bishop)];
+    Bitboard enemyQueens  = bitboards_[static_cast<int>(attacker)][static_cast<int>(PieceType::Queen)];
+
+    // 1. Attaques de Pions
+    // Si l'attaquant est Blanc, ses pions attaquent vers le haut (+7, +9).
+    // Donc si je suis la case cible, je regarde vers le bas (-7, -9) pour voir s'il y a un pion blanc.
+    int pawnDir = (attacker == Color::White) ? -1 : 1; 
+    // Note: pawnDir est inversé ici car on regarde d'où vient l'attaque
+    
+    int x = square % 8;
+    // Diagonale Gauche (du point de vue du pion attaquant)
+    int attackSq1 = square + (pawnDir * 8) - 1;
+    if (attackSq1 >= 0 && attackSq1 < 64 && std::abs((attackSq1 % 8) - x) == 1) {
+        if (getBit(enemyPawns, attackSq1)) return true;
+    }
+    // Diagonale Droite
+    int attackSq2 = square + (pawnDir * 8) + 1;
+    if (attackSq2 >= 0 && attackSq2 < 64 && std::abs((attackSq2 % 8) - x) == 1) {
+        if (getBit(enemyPawns, attackSq2)) return true;
+    }
+
+    // 2. Attaques de Cavaliers
+    // On réutilise les offsets définis plus haut (assurez-vous qu'ils sont accessibles ou re-déclarez les)
+    const int kOffsets[] = {-17, -15, -10, -6, 6, 10, 15, 17};
+    for (int offset : kOffsets) {
+        int target = square + offset;
+        if (target >= 0 && target < 64 && std::abs((target % 8) - x) <= 2) {
+            if (getBit(enemyKnights, target)) return true;
+        }
+    }
+
+    // 3. Attaques de Roi (pour éviter que deux rois se collent)
+    const int kiOffsets[] = {-9, -8, -7, -1, 1, 7, 8, 9};
+    for (int offset : kiOffsets) {
+        int target = square + offset;
+        if (target >= 0 && target < 64 && std::abs((target % 8) - x) <= 1) {
+            if (getBit(enemyKing, target)) return true;
+        }
+    }
+
+    // 4. Attaques Glissantes (Tours/Dames et Fous/Dames)
+    // On lance des rayons depuis la case 'square'. Si on touche une pièce :
+    // - Si c'est une Tour/Dame ennemie (ortho) -> TRUE
+    // - Si c'est un Fou/Dame ennemie (diag) -> TRUE
+    // - Si c'est n'importe quoi d'autre -> STOP (bloqué)
+    
+    // Orthogonal (Tours + Dames)
+    const int orthoDirs[] = {-8, 8, -1, 1};
+    for (int step : orthoDirs) {
+        int curr = square;
+        while (true) {
+            // Vérif bords (moche mais nécessaire sans Mailbox 10x12)
+            int cx = curr % 8;
+            if ((step == 1 && cx == 7) || (step == -1 && cx == 0)) break;
+            
+            curr += step;
+            if (curr < 0 || curr >= 64) break;
+
+            if (isSquareOccupied(curr)) {
+                if (getBit(enemyRooks, curr) || getBit(enemyQueens, curr)) return true;
+                break; // Bloqué par une autre pièce (amie ou ennemie non attaquante)
+            }
+        }
+    }
+
+    // Diagonales (Fous + Dames)
+    const int diagDirs[] = {-9, -7, 7, 9};
+    for (int step : diagDirs) {
+        int curr = square;
+        while (true) {
+            int cx = curr % 8;
+            // Vérif bords précise pour diagonales
+            if ((step == -9 || step == 7) && cx == 0) break; // Bord gauche
+            if ((step == 9 || step == -7) && cx == 7) break; // Bord droit
+
+            curr += step;
+            if (curr < 0 || curr >= 64) break;
+
+            if (isSquareOccupied(curr)) {
+                if (getBit(enemyBishops, curr) || getBit(enemyQueens, curr)) return true;
+                break;
+            }
+        }
+    }
+
+    return false;
+}
+
+bool Board::isSquareOccupied(int square) const {
+    // occupancies_[2] contient l'union des pièces blanches et noires
+    return getBit(occupancies_[2], square);
 }

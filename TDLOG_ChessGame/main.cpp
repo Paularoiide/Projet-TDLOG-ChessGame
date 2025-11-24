@@ -1,6 +1,6 @@
 #include <iostream>
 #include <string>
-#include <cctype> // pour std::tolower
+#include <cctype> 
 #include "game.h"
 #include "piece.h" // Nécessaire pour PieceType et Color
 #include "board.h"
@@ -8,9 +8,9 @@
 
 // Fonction d'aide pour afficher le plateau Bitboard
 void print_board(const Board& b) {
-    std::cout << "\n  a b c d e f g h\n"; // Aide visuelle pour les colonnes
+    std::cout << "\n  a b c d e f g h\n"; 
     for (int y = 7; y >= 0; --y) { 
-        std::cout << y + 1 << " "; // Aide visuelle pour les rangées
+        std::cout << y + 1 << " "; 
         for (int x = 0; x < 8; ++x) {
             int sq = y * 8 + x;
             Color c;
@@ -25,7 +25,6 @@ void print_board(const Board& b) {
                 case PieceType::King: symb = 'K'; break;
                 default: break;
             }
-            // Les pièces noires en minuscules
             if (c == Color::Black) symb = std::tolower(symb);
             std::cout << symb << " ";
         }
@@ -35,7 +34,6 @@ void print_board(const Board& b) {
 }
 
 int main() {
-    // --- CHANGEMENT ICI : Constructeur par défaut ---
     Game g; 
     g.startGame();
     
@@ -44,9 +42,7 @@ int main() {
     std::cout << "\nEntrez un coup (ex: e2 e4), q pour quitter:\n";
     std::string a, b;
     
-    // Lambda pour convertir "e2" -> index 0-63
     auto parse = [](const std::string& s) -> int { 
-        // Vérification basique pour éviter les crashs si l'input est mauvais
         if (s.length() < 2) return 0;
         int file = s[0] - 'a';
         int rank = s[1] - '1';
@@ -54,21 +50,40 @@ int main() {
     };
 
     while (true) {
-        std::cout << "> "; // Invite de commande
+        // Affichage du trait (qui doit jouer)
+        std::cout << (g.currentTurn() == Color::White ? "[Blancs]" : "[Noirs]") << " > ";
+        
         if (!(std::cin >> a)) break;
         if (a == "q") break; 
         
         std::cin >> b;
         
-        // Création du coup
         Move m(parse(a), parse(b));
         
-        // --- CHANGEMENT ICI : Gestion du retour de playMove ---
         if (g.playMove(m)) {
             std::cout << "Coup joue : " << a << " -> " << b << "\n";
             print_board(g.board());
+
+            // --- NOUVEAU BLOC : Vérification de la fin de partie ---
+            GameState state = g.gameState();
+
+            if (state == GameState::Check) {
+                std::cout << " ECHEC !\n";
+            }
+            else if (state == GameState::Checkmate) {
+                // Si c'est aux Blancs de jouer et qu'ils sont mat, les Noirs ont gagné.
+                std::string winner = (g.currentTurn() == Color::White) ? "Les Noirs" : "Les Blancs";
+                std::cout << "\n ECHEC ET MAT ! " << winner << " gagnent la partie !\n";
+                break; // On sort de la boucle, fin du jeu
+            }
+            else if (state == GameState::Stalemate) {
+                std::cout << "\n½ PAT ! Match Nul (Plus de coups legaux mais pas d'echec).\n";
+                break; // Fin du jeu
+            }
+            // -------------------------------------------------------
+
         } else {
-            std::cout << "Coup INVALIDE ! (Verifiez les regles ou le tour)\n";
+            std::cout << " Coup INVALIDE ! (Verifiez les regles, ou si vous etes en echec)\n";
         }
     }
     
