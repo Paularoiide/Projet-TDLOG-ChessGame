@@ -19,6 +19,15 @@ Board::Board() {
     // Kings
     setBit(bitboards_[0][5], 4); 
     setBit(bitboards_[1][5], 60);
+    // Knights
+    setBit(bitboards_[0][1], 1); setBit(bitboards_[0][1], 6);
+    setBit(bitboards_[1][1], 57); setBit(bitboards_[1][1], 62);
+    // Bishops
+    setBit(bitboards_[0][2], 2); setBit(bitboards_[0][2], 5);
+    setBit(bitboards_[1][2], 58); setBit(bitboards_[1][2], 61);
+    // Queens
+    setBit(bitboards_[0][4], 3);
+    setBit(bitboards_[1][4], 59);
 
     updateOccupancies();
 }
