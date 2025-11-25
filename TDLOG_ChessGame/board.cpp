@@ -81,12 +81,61 @@ void Board::movePiece(int from, int to) {
     PieceType pt = getPieceTypeAt(from, color);
     if (pt == PieceType::None) return;
 
+    // Disable castling rights when king or rook moves
+    if (pt == PieceType::King) {
+        disableCastle(color, true);
+        disableCastle(color, false);
+    }
+    if (pt == PieceType::Rook) {
+        // If rook moved from its initial square, disable that side castling
+        if (color == Color::White && from == 0)  disableCastle(Color::White, false); // a1 rook
+        if (color == Color::White && from == 7)  disableCastle(Color::White, true);  // h1 rook
+        if (color == Color::Black && from == 56) disableCastle(Color::Black, false); // a8 rook
+        if (color == Color::Black && from == 63) disableCastle(Color::Black, true);  // h8 rook
+    }
+
     // Capture handling: remove the opponent piece if there is one
     Color targetColor;
     PieceType targetPt = getPieceTypeAt(to, targetColor);
     if (targetPt != PieceType::None) {
         // We assume this is a valid capture (validated beforehand by generateLegalMoves)
         popBit(bitboards_[static_cast<int>(targetColor)][static_cast<int>(targetPt)], to);
+    }
+
+    // Disable castling if rook is captured
+    if (targetPt == PieceType::Rook) {
+        if (targetColor == Color::White && to == 0)  disableCastle(Color::White, false);
+        if (targetColor == Color::White && to == 7)  disableCastle(Color::White, true);
+        if (targetColor == Color::Black && to == 56) disableCastle(Color::Black, false);
+        if (targetColor == Color::Black && to == 63) disableCastle(Color::Black, true);
+    }
+
+    // Check for castling move: king moving 2 squares
+    if (pt == PieceType::King && std::abs(to - from) == 2) {
+
+        // White king-side: e1 -> g1
+        if (color == Color::White && to == 6) {
+            popBit(bitboards_[0][static_cast<int>(PieceType::Rook)], 7); // remove rook from h1
+            setBit(bitboards_[0][static_cast<int>(PieceType::Rook)], 5); // place rook on f1
+        }
+
+        // White queen-side: e1 -> c1
+        if (color == Color::White && to == 2) {
+            popBit(bitboards_[0][static_cast<int>(PieceType::Rook)], 0); // a1
+            setBit(bitboards_[0][static_cast<int>(PieceType::Rook)], 3); // d1
+        }
+
+        // Black king-side: e8 -> g8
+        if (color == Color::Black && to == 62) {
+            popBit(bitboards_[1][static_cast<int>(PieceType::Rook)], 63);
+            setBit(bitboards_[1][static_cast<int>(PieceType::Rook)], 61);
+        }
+
+        // Black queen-side: e8 -> c8
+        if (color == Color::Black && to == 58) {
+            popBit(bitboards_[1][static_cast<int>(PieceType::Rook)], 56);
+            setBit(bitboards_[1][static_cast<int>(PieceType::Rook)], 59);
+        }
     }
 
     // Move our piece
@@ -192,8 +241,56 @@ std::vector<Move> Board::generateLegalMoves(Color turn) const {
                 }
             }
         }
-    }
 
+
+        // --- 3.5 KING CASTLING
+        auto tryCastling = [&](bool kingSide) {
+            if (!canCastle(turn, kingSide))
+                return;
+
+            int kingSq = sq;
+            int rookSq = -1;
+            int path1 = -1, path2 = -1; // squares the king passes through
+            int finalKingSq = -1;
+
+            if (turn == Color::White) {
+                if (kingSide) {
+                    rookSq = 7;
+                    path1 = 5; path2 = 6;
+                    finalKingSq = 6;
+                } else {
+                    rookSq = 0;
+                    path1 = 3; path2 = 2;
+                    finalKingSq = 2;
+                }
+            } else {
+                if (kingSide) {
+                    rookSq = 63;
+                    path1 = 61; path2 = 62;
+                    finalKingSq = 62;
+                } else {
+                    rookSq = 56;
+                    path1 = 59; path2 = 58;
+                    finalKingSq = 58;
+                }
+            }
+
+            // Check paths are empty
+            if (getBit(occupancies_[2], path1)) return;
+            if (getBit(occupancies_[2], path2)) return;
+
+            // King may not be in check or pass attacked squares
+            if (isInCheck(turn)) return;
+            if (isSquareAttacked(path1, opposite(turn))) return;
+            if (isSquareAttacked(path2, opposite(turn))) return;
+
+            moves.emplace_back(kingSq, finalKingSq);
+        };
+
+        tryCastling(true);  // king-side
+        tryCastling(false); // queen-side
+
+    }
     // --- 4. SLIDING PIECES ---
     auto generateSlidingMoves = [&](PieceType pt, const int* dirs, int numDirs) {
         Bitboard pieces = bitboards_[c][static_cast<int>(pt)];
@@ -375,3 +472,15 @@ bool Board::isSquareOccupied(int square) const {
     // occupancies_[2] contains the union of white and black pieces
     return getBit(occupancies_[2], square);
 }
+
+bool Board::canCastle(Color c, bool kingSide) const {
+    if (c == Color::White) return kingSide ? castleRights_[0] : castleRights_[1];
+    else                   return kingSide ? castleRights_[2] : castleRights_[3];
+}
+
+void Board::disableCastle(Color c, bool kingSide) {
+    if (c == Color::White) castleRights_[kingSide ? 0 : 1] = false;
+    else                   castleRights_[kingSide ? 2 : 3] = false;
+}
+
+

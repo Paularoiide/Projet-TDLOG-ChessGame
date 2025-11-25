@@ -16,6 +16,9 @@ class Board {
     // Utility bitboards (updated after each move)
     Bitboard occupancies_[3]; // 0: White, 1: Black, 2: Both
 
+    // Castling rights: [White_K, White_Q, Black_K, Black_Q]
+    bool castleRights_[4] = {true, true, true, true};
+
 public:
     Board(); // Initializes the standard starting position
 
@@ -52,4 +55,7 @@ public:
 
     // Indicates whether the player of color 'c' is in check
     bool isInCheck(Color c) const;
+
+    bool canCastle(Color c, bool kingSide) const;
+    void disableCastle(Color c, bool kingSide);
 };
