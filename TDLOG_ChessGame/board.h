@@ -5,51 +5,51 @@
 #include "piece.h"
 #include "move.h"
 
-// Un Bitboard est juste un entier 64 bits non signé
+// A Bitboard is just an unsigned 64-bit integer
 using Bitboard = uint64_t;
 
 class Board {
-    // 2 couleurs, 6 types de pièces
+    // 2 colors, 6 piece types
     // bitboards[0][0] = White Pawns, bitboards[1][5] = Black King, etc.
-    Bitboard bitboards_[2][6]; 
-    
-    // Bitboards utilitaires (mis à jour à chaque coup)
+    Bitboard bitboards_[2][6];
+
+    // Utility bitboards (updated after each move)
     Bitboard occupancies_[3]; // 0: White, 1: Black, 2: Both
 
 public:
-    Board(); // Initialise la position de départ standard
+    Board(); // Initializes the standard starting position
 
-    // Accesseurs rapides
-    Bitboard getBitboard(Color c, PieceType pt) const { 
-        return bitboards_[static_cast<int>(c)][static_cast<int>(pt)]; 
+    // Fast accessors
+    Bitboard getBitboard(Color c, PieceType pt) const {
+        return bitboards_[static_cast<int>(c)][static_cast<int>(pt)];
     }
 
     PieceType getPieceTypeAt(int square, Color& color) const;
     bool isSquareOccupied(int square) const;
 
-    // Gestion des bits
+    // Bit manipulation
     static void setBit(Bitboard& bb, int square) { bb |= (1ULL << square); }
     static void popBit(Bitboard& bb, int square) { bb &= ~(1ULL << square); }
     static bool getBit(Bitboard bb, int square) { return (bb & (1ULL << square)); }
 
-    // Logique de jeu
+    // Game logic
     void movePiece(int from, int to);
-    
-    // Génération de coups (Exemple simplifié)
+
+    // Move generation (simplified example)
     std::vector<Move> generateLegalMoves(Color turn) const;
 
-    // Mise à jour des occurences globales
+    // Updates global occupancies
     void updateOccupancies();
-    
-    // Pour l'affichage
+
+    // For display / printing
     void print() const;
 
-    // Vérifie si une case donnée est attaquée par une couleur spécifique
+    // Checks if a given square is attacked by a specific color
     bool isSquareAttacked(int square, Color attacker) const;
 
-    // Trouve la position du roi d'une certaine couleur
+    // Finds the king's position for a given color
     int getKingSquare(Color c) const;
 
-    // Indique si le joueur de la couleur 'c' est en échec
+    // Indicates whether the player of color 'c' is in check
     bool isInCheck(Color c) const;
 };

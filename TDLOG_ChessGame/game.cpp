@@ -2,20 +2,20 @@
 #include <iostream>
 
 Game::Game() : board_(), currentTurn_(Color::White) {
-    // Le constructeur de Board initialise déjà les pièces par défaut
+    // The Board constructor already initializes the default starting position
 }
 
 void Game::startGame() {
-    // Si vous aviez une méthode board_.reset(), ce serait ici.
-    // Pour l'instant, on s'assure juste que les Blancs commencent.
+    // If you had a board_.reset() method, it would be called here.
+    // For now, we simply ensure that White always starts.
     currentTurn_ = Color::White;
 }
 
 bool Game::playMove(const Move& moveReq) {
-    // 1. Générer coups légaux
+    // 1. Generate legal moves
     std::vector<Move> legalMoves = board_.generateLegalMoves(currentTurn_);
 
-    // 2. Valider le coup
+    // 2. Validate the move
     bool found = false;
     for (const auto& m : legalMoves) {
         if (m.from == moveReq.from && m.to == moveReq.to) {
@@ -25,19 +25,19 @@ bool Game::playMove(const Move& moveReq) {
     }
     if (!found) return false;
 
-    // 3. Jouer le coup
+    // 3. Play the move
     board_.movePiece(moveReq.from, moveReq.to);
     currentTurn_ = opposite(currentTurn_);
 
-    // 4. Mettre à jour l'état pour le NOUVEAU joueur
+    // 4. Update the game state for the NEW player to move
     std::vector<Move> nextMoves = board_.generateLegalMoves(currentTurn_);
     bool inCheck = board_.isInCheck(currentTurn_);
 
     if (nextMoves.empty()) {
         if (inCheck) {
-            state_ = GameState::Checkmate; // Plus de coups + Échec = MAT
+            state_ = GameState::Checkmate; // No moves + Check = Checkmate
         } else {
-            state_ = GameState::Stalemate; // Plus de coups + Pas échec = PAT
+            state_ = GameState::Stalemate; // No moves + No check = Stalemate
         }
     } else {
         if (inCheck) {
