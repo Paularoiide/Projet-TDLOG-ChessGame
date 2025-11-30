@@ -2,12 +2,9 @@
 #include <iostream>
 
 Game::Game() : board_(), currentTurn_(Color::White) {
-    // The Board constructor already initializes the default starting position
 }
 
 void Game::startGame() {
-    // If you had a board_.reset() method, it would be called here.
-    // For now, we simply ensure that White always starts.
     currentTurn_ = Color::White;
 }
 
@@ -18,26 +15,31 @@ bool Game::playMove(const Move& moveReq) {
     // 2. Validate the move
     bool found = false;
     for (const auto& m : legalMoves) {
-        if (m.from == moveReq.from && m.to == moveReq.to) {
+        // IMPORTANT 1 : On doit vérifier que la promotion correspond aussi !
+        // (Sinon le jeu ne sait pas si vous voulez une Dame ou un Cavalier)
+        if (m.from == moveReq.from && m.to == moveReq.to && m.promotion == moveReq.promotion) {
             found = true;
             break;
         }
     }
+    
     if (!found) return false;
 
     // 3. Play the move
-    board_.movePiece(moveReq.from, moveReq.to);
+    // IMPORTANT 2 : Il faut PASSER l'argument promotion à movePiece !
+    board_.movePiece(moveReq.from, moveReq.to, moveReq.promotion);
+    
     currentTurn_ = opposite(currentTurn_);
 
-    // 4. Update the game state for the NEW player to move
+    // 4. Update state (Checkmate/Stalemate logic)
     std::vector<Move> nextMoves = board_.generateLegalMoves(currentTurn_);
     bool inCheck = board_.isInCheck(currentTurn_);
 
     if (nextMoves.empty()) {
         if (inCheck) {
-            state_ = GameState::Checkmate; // No moves + Check = Checkmate
+            state_ = GameState::Checkmate; 
         } else {
-            state_ = GameState::Stalemate; // No moves + No check = Stalemate
+            state_ = GameState::Stalemate; 
         }
     } else {
         if (inCheck) {
