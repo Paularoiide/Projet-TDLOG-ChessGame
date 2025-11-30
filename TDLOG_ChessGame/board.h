@@ -18,6 +18,8 @@ class Board {
 
     // Castling rights: [White_K, White_Q, Black_K, Black_Q]
     bool castleRights_[4] = {true, true, true, true};
+    // En passant target square (-1 if none)
+    int enPassantTarget_ = -1;
 
 public:
     Board(); // Initializes the standard starting position
@@ -58,4 +60,6 @@ public:
 
     bool canCastle(Color c, bool kingSide) const;
     void disableCastle(Color c, bool kingSide);
+
+    int getEnPassantTarget() const { return enPassantTarget_; }
 };

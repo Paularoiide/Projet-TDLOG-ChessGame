@@ -40,6 +40,7 @@ Board::Board() {
     setBit(bitboards_[1][5], 60);
 
     updateOccupancies();
+    enPassantTarget_ = -1;
 }
 
 // =======================
@@ -77,10 +78,22 @@ void Board::movePiece(int from, int to, PieceType promotion) {
     PieceType pt = getPieceTypeAt(from, color);
     if (pt == PieceType::None) return;
 
-    // --- Roque Rights Management ---
+    // 1. Detection: Is this an EN PASSANT capture?
+    // This is the case if a Pawn moves to the en-passant target square
+    bool isEnPassant = (pt == PieceType::Pawn && to == enPassantTarget_);
+
+    // 2. Handle En-Passant capture (Remove the opponent's pawn)
+    // The opponent's pawn is NOT on 'to', it is behind (if white moves up) or in front (if black moves down).
+    if (isEnPassant) {
+        int capturedSq = (color == Color::White) ? to - 8 : to + 8;
+        // Force removal of the opponent's pawn
+        popBit(bitboards_[static_cast<int>(opposite(color))][static_cast<int>(PieceType::Pawn)], capturedSq);
+        // Note: occupancy will be updated globally at the end of the function
+    }
+
+    // 3. Handle Castling (Rights) - Unchanged
     if (pt == PieceType::King) {
-        disableCastle(color, true);
-        disableCastle(color, false);
+        disableCastle(color, true); disableCastle(color, false);
     }
     if (pt == PieceType::Rook) {
         if (color == Color::White && from == 0)  disableCastle(Color::White, false);
@@ -89,33 +102,44 @@ void Board::movePiece(int from, int to, PieceType promotion) {
         if (color == Color::Black && from == 63) disableCastle(Color::Black, true);
     }
 
-    // --- Capture Gestion ---
+    // 4. Handle Standard Capture (Unchanged)
+    // Note: If it's En Passant, targetPt will be None (since the 'to' square is empty), so this block won't execute, which is correct.
     Color targetColor;
     PieceType targetPt = getPieceTypeAt(to, targetColor);
     if (targetPt != PieceType::None) {
         popBit(bitboards_[static_cast<int>(targetColor)][static_cast<int>(targetPt)], to);
-    }
-    if (targetPt == PieceType::Rook) {
-        if (targetColor == Color::White && to == 0)  disableCastle(Color::White, false);
-        if (targetColor == Color::White && to == 7)  disableCastle(Color::White, true);
-        if (targetColor == Color::Black && to == 56) disableCastle(Color::Black, false);
-        if (targetColor == Color::Black && to == 63) disableCastle(Color::Black, true);
+        if (targetPt == PieceType::Rook) { // If a rook is captured, remove castling rights
+             if (targetColor == Color::White && to == 0)  disableCastle(Color::White, false);
+             if (targetColor == Color::White && to == 7)  disableCastle(Color::White, true);
+             if (targetColor == Color::Black && to == 56) disableCastle(Color::Black, false);
+             if (targetColor == Color::Black && to == 63) disableCastle(Color::Black, true);
+        }
     }
 
-    // --- Roque Movement Management (Code unchanged) ---
+    // 5. Handle Castling Move (Move the rook) - Unchanged
     if (pt == PieceType::King && std::abs(to - from) == 2) {
-       if (color == Color::White && to == 6) { popBit(bitboards_[0][3], 7); setBit(bitboards_[0][3], 5); }
-       if (color == Color::White && to == 2) { popBit(bitboards_[0][3], 0); setBit(bitboards_[0][3], 3); }
-       if (color == Color::Black && to == 62) { popBit(bitboards_[1][3], 63); setBit(bitboards_[1][3], 61); }
-       if (color == Color::Black && to == 58) { popBit(bitboards_[1][3], 56); setBit(bitboards_[1][3], 59); }
+        if (color == Color::White && to == 6) { popBit(bitboards_[0][3], 7); setBit(bitboards_[0][3], 5); }
+        if (color == Color::White && to == 2) { popBit(bitboards_[0][3], 0); setBit(bitboards_[0][3], 3); }
+        if (color == Color::Black && to == 62) { popBit(bitboards_[1][3], 63); setBit(bitboards_[1][3], 61); }
+        if (color == Color::Black && to == 58) { popBit(bitboards_[1][3], 56); setBit(bitboards_[1][3], 59); }
     }
 
-    
-    
-    // 1. We remove the piece from the 'from' square
-    popBit(bitboards_[static_cast<int>(color)][static_cast<int>(pt)], from);
+    // 6. UPDATE THE enPassantTarget_ VARIABLE
+    // By default, reset the target because the opportunity only lasts one turn
+    int nextEnPassantTarget = -1; 
 
-    // 2. If it's a promotion, we place the new piece, otherwise we move the old one
+    // If it is a PAWN doing a DOUBLE PUSH, set the new target
+    if (pt == PieceType::Pawn && std::abs(to - from) == 16) {
+        // The target is the intermediate square
+        nextEnPassantTarget = (from + to) / 2;
+    }
+    
+    // Apply the state change
+    enPassantTarget_ = nextEnPassantTarget;
+
+
+    // 7. Final piece movement (Unchanged)
+    popBit(bitboards_[static_cast<int>(color)][static_cast<int>(pt)], from);
     if (promotion != PieceType::None) {
         setBit(bitboards_[static_cast<int>(color)][static_cast<int>(promotion)], to);
     } else {
@@ -186,27 +210,36 @@ std::vector<Move> Board::generateLegalMoves(Color turn) const {
             }
         }
         
-        // C. Captures
+        // C. Captures (Standard + En Passant)
         int captureOffsets[] = {up - 1, up + 1};
         for (int offset : captureOffsets) {
             int capSq = sq + offset;
+            
+            // geometric checks
             if (capSq < 0 || capSq >= 64) continue;
             int capX = capSq % 8;
             if (std::abs(capX - x) > 1) continue;
 
-            if (getBit(them, capSq)) {
-                // CORRECTION ICI : On utilise moves.back() pour modifier isCapture
-                // au lieu de le faire directement sur emplace_back.
-                
+            // Capture conditions: is enemy piece OR is en-passant target
+            bool isEnPassant = (capSq == enPassantTarget_);
+            bool isEnemy = getBit(them, capSq);
+
+            if (isEnemy || isEnPassant) {
+                // Move creation
                 int r = capSq / 8;
+                
+                // Note: En passant never occurs on the last rank,
+                // so no conflict with promotion here.
                 if (r == promotionRank) {
+                    // Promotion with capture
                     moves.emplace_back(sq, capSq, PieceType::Queen); moves.back().isCapture = true;
                     moves.emplace_back(sq, capSq, PieceType::Rook);  moves.back().isCapture = true;
                     moves.emplace_back(sq, capSq, PieceType::Bishop); moves.back().isCapture = true;
                     moves.emplace_back(sq, capSq, PieceType::Knight); moves.back().isCapture = true;
                 } else {
-                    moves.emplace_back(sq, capSq); 
-                    moves.back().isCapture = true;
+                    // Standard capture OR En Passant
+                    moves.emplace_back(sq, capSq);
+                    moves.back().isCapture = true; // En Passant IS a capture
                 }
             }
         }
