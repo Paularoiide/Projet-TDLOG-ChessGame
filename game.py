@@ -8,7 +8,7 @@ import os
 
 COLORS = ["#F0D9B5", "#B58863", "#BBCB2B"]
 
-STARTING_BOARDS = []
+"""STARTING_BOARDS = []
 STARTING_BOARDS.append(
     [
             ["bR", "bN", "bB", "bQ", "bK", "bB", "bN", "bR"],
@@ -20,15 +20,15 @@ STARTING_BOARDS.append(
             ["wP", "wP", "wP", "wP", "wP", "wP", "wP", "wP"],
             ["wR", "wN", "wB", "wQ", "wK", "wB", "wN", "wR"],
         ]
-)
+)"""
 
 BOARD_SIZE = 600
 SQUARE_SIZE = BOARD_SIZE // 8
 
 PIECES = {
-    "wP": "♙", "wR": "♖", "wN": "♘", "wB": "♗", "wQ": "♕", "wK": "♔",
-    "bP": "♟", "bR": "♜", "bN": "♞", "bB": "♝", "bQ": "♛", "bK": "♚",
-    "--": " " 
+    "P": "♙", "R": "♖", "N": "♘", "B": "♗", "Q": "♕", "K": "♔",
+    "p": "♟", "r": "♜", "n": "♞", "b": "♝", "q": "♛", "k": "♚",
+    "-": " " 
 }
 
 
@@ -47,11 +47,22 @@ class Engine():
         if self.process.stdin:
             self.process.stdin.write(request+"\n")
             self.process.stdin.flush()
-            return self.process.stdout.readline().strip()
+            return self.read_board()
+            
         
     def close(self):
         if self.process:
             self.process.terminate()
+
+    def read_board(self):
+        if self.process.stdout:
+            lines = []
+            for _ in range(8):
+                lines.append(self.process.stdout.readline().strip())
+            self.process.stdout.flush()
+            return lines
+        else:
+            print(f"Board couldn't be read.\n")
 
 
 
@@ -91,7 +102,7 @@ class Move():
 
 class Board():
     def __init__(self, var: Variante = Variante.CLASSIC):
-        self.board = STARTING_BOARDS[var.value]
+        self.board = [[] for _ in range(8)]
 
     def __getitem__(self, pos: str):
         assert(len(pos)==2)
@@ -111,12 +122,17 @@ class Board():
         row = 8 - int(row)
         assert(0<=col<8 and 0<=row<8), "index out of bounds"
         self.board[row][col] = val
-    
-    def move(self, pos_i: str, pos_f: str):
+
+    def update(self, board_output: str):
+        assert(len(board_output)==8), f"Wrong board output from engine"
+        for i in range(8):
+            self.board[i] = (board_output[i].split())[:8]
+
+    """def move(self, pos_i: str, pos_f: str):
         replaced = self[pos_f]
         self[pos_f] = self[pos_i]
         self[pos_i] = "--"
-        return None if replaced == "--" else replaced
+        return None if replaced == "--" else replaced"""
     
 
 
@@ -124,16 +140,14 @@ class DisplayGame():
     def __init__(self, root, variante: Variante, engine: str):
         self.root = root
         self.board = Board(variante)
-        self.engine = Engine(variante, engine)
+        self.engine = Engine(engine)
         self.root.title("Chess Game")
         self.canvas = tk.Canvas(root, width=BOARD_SIZE, height=BOARD_SIZE)
         self.canvas.pack()
-
         self.move_handler = Move(self.canvas, self.submit_move)
-        self.init_board()
+        self.act(self.engine.read_board())
 
-    
-    def init_board(self):
+    def draw_board(self):
         self.canvas.delete("all")
         col_ind = 0
         for row in range(8):
@@ -153,30 +167,23 @@ class DisplayGame():
             col_ind = (col_ind+1)%2
 
     def submit_move(self, pos1, pos2):
-        command = f"move {pos1} {pos2}"
+        command = f"{pos1} {pos2}"
         answer = self.engine.send_request(command)
-        
-        self.act(answer, pos1, pos2)
+        self.act(answer)
 
-    def act(self, answer: str, pos1, pos2):
-        answer = answer.split()
-
-        if answer[0] == "OK":
-            self.board.move(pos1, pos2)
-            self.init_board()
-        
-        elif answer[0] == "ILL":
-            pass
+    def act(self, answer: str):
+        self.board.update(answer)
+        self.draw_board()
 
 
 
 if __name__== "__main__":
     root = tk.Tk()
-    folder = "./TDLOG_ChessGame"
+    folder = "./TDLOG_ChessGame/build"
     if os.name == 'nt':
-        engine = os.path.join(folder, "engine.exe")
+        engine = os.path.join(folder, "TDLOG_ChessGame.exe")
     else:
-        engine = os.path.join(folder, "engine")
+        engine = os.path.join(folder, "TDLOG_ChessGame")
 
     assert(os.path.exists(engine)), f"Engine not found"
 
@@ -186,5 +193,5 @@ if __name__== "__main__":
         game.engine.close()
         game.root.destroy()
 
-    root.protocol("VM_DELETE_WINDOW", on_closing)
+    root.protocol("WM_DELETE_WINDOW", on_closing)
     root.mainloop()

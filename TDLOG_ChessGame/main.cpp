@@ -10,14 +10,12 @@
 
 // Helper function to print the board
 void print_board(const Board& b) {
-    std::cout << "\n  a b c d e f g h\n"; 
     for (int y = 7; y >= 0; --y) { 
-        std::cout << y + 1 << " "; 
         for (int x = 0; x < 8; ++x) {
             int sq = y * 8 + x;
             Color c;
             PieceType pt = b.getPieceTypeAt(sq, c);
-            char symb = '.';
+            char symb = '-';
             switch(pt) {
                 case PieceType::Pawn: symb = 'P'; break;
                 case PieceType::Knight: symb = 'N'; break;
@@ -31,9 +29,8 @@ void print_board(const Board& b) {
             if (c == Color::Black) symb = std::tolower(symb);
             std::cout << symb << " ";
         }
-        std::cout << y + 1 << "\n";
+        std::cout << std::endl;
     }
-    std::cout << "  a b c d e f g h\n";
 }
 
 int main() {
@@ -42,10 +39,10 @@ int main() {
     
     print_board(g.board());
 
-    std::cout << "\nCommands:\n";
-    std::cout << " - Standard : e2 e4\n";
-    std::cout << " - Promotion: a7 a8 q (or a7 a8q)\n";
-    std::cout << " - Quit     : q\n\n";
+    //std::cout << "\nCommands:\n";
+    //std::cout << " - Standard : e2 e4\n";
+    //std::cout << " - Promotion: a7 a8 q (or a7 a8q)\n";
+    //std::cout << " - Quit     : q\n\n";
 
     // Lambda to convert "e2" -> index 0-63
     auto parse = [](const std::string& s) -> int { 
@@ -58,7 +55,7 @@ int main() {
 
     std::string line;
     while (true) {
-        std::cout << (g.currentTurn() == Color::White ? "[White]" : "[Black]") << " > ";
+        //std::cout << (g.currentTurn() == Color::White ? "[White]" : "[Black]") << " > ";
         
         // Read the full line to handle inputs with spaces like "a7 a8 q"
         if (!std::getline(std::cin, line)) break;
@@ -71,7 +68,7 @@ int main() {
         if (word1 == "q") break; // Quit command
 
         if (!(ss >> word2)) {
-            std::cout << "Invalid format. Usage: e2 e4\n";
+            //std::cout << "Invalid format. Usage: e2 e4\n";
             continue;
         }
         
@@ -83,7 +80,7 @@ int main() {
         int to = parse(word2);
 
         if (from == -1 || to == -1) {
-             std::cout << "Invalid coordinates.\n";
+             //std::cout << "Invalid coordinates.\n";
              continue;
         }
 
@@ -111,25 +108,26 @@ int main() {
         Move m(from, to, promo);
         
         if (g.playMove(m)) {
-            std::cout << "Move played: " << word1 << " -> " << word2 << (promo != PieceType::None ? " (Promo)" : "") << "\n";
+            //std::cout << "Move played: " << word1 << " -> " << word2 << (promo != PieceType::None ? " (Promo)" : "") << "\n";
             print_board(g.board());
 
             // 4. Game State
             GameState state = g.gameState();
             if (state == GameState::Check) {
-                std::cout << "  CHECK!\n";
+                //std::cout << "  CHECK!\n";
             }
             else if (state == GameState::Checkmate) {
-                std::string winner = (g.currentTurn() == Color::White) ? "Black" : "White";
-                std::cout << "\n CHECKMATE! " << winner << " wins the game!\n";
+                //std::string winner = (g.currentTurn() == Color::White) ? "Black" : "White";
+                //std::cout << "\n CHECKMATE! " << winner << " wins the game!\n";
                 break; 
             }
             else if (state == GameState::Stalemate) {
-                std::cout << "\n½ STALEMATE! Draw.\n";
+                //std::cout << "\n½ STALEMATE! Draw.\n";
                 break; 
             }
         } else {
-            std::cout << " INVALID MOVE! (Check rules, promotion, or if in check)\n";
+            //std::cout << " INVALID MOVE! (Check rules, promotion, or if in check)\n";
+            print_board(g.board());
         }
     }
     
