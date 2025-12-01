@@ -4,6 +4,39 @@
 Game::Game() : board_(), currentTurn_(Color::White) {
 }
 
+
+static int evaluate(const Board& board, Color root) {
+    // Piece values (centipawns)
+    const int values[6] = {
+        100,  // Pawn
+        320,  // Knight
+        330,  // Bishop
+        500,  // Rook
+        900,  // Queen
+        20000 // King (large value to emphasize checkmate)
+    };
+
+    int scoreWhite = 0;
+    int scoreBlack = 0;
+
+    for (int pt = 0; pt < 6; ++pt) {
+        PieceType piece = static_cast<PieceType>(pt);
+        // Count bits for each piece type and color
+        Bitboard wbb = board.getBitboard(Color::White, piece);
+        Bitboard bbb = board.getBitboard(Color::Black, piece);
+
+        int wCount = __builtin_popcountll(wbb);
+        int bCount = __builtin_popcountll(bbb);
+
+        scoreWhite += wCount * values[pt];
+        scoreBlack += bCount * values[pt];
+    }
+
+    int diff = scoreWhite - scoreBlack;
+    return (root == Color::White ? diff : -diff);
+}
+
+
 void Game::startGame() {
     currentTurn_ = Color::White;
 }

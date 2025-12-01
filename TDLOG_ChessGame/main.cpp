@@ -36,6 +36,8 @@ void print_board(const Board& b) {
     std::cout << "  a b c d e f g h\n";
 }
 
+
+
 int main() {
     Game g; 
     g.startGame();

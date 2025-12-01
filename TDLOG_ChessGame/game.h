@@ -5,6 +5,8 @@
 #include "move.h"
 enum class GameState { Playing, Check, Checkmate, Stalemate };
 
+static int evaluate(const Board& board, Color root);
+
 class Game {
     Board board_;
     Color currentTurn_;
