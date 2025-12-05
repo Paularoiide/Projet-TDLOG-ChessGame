@@ -167,15 +167,17 @@ class DisplayGame():
             col_ind = (col_ind+1)%2
 
     def submit_move(self, pos1, pos2):
-        # Send human move, read board after that move
+        # Send human move, read board immediately (displayed at once)
         answer = self.engine.send_request(f"{pos1} {pos2}")
         self.act(answer)
 
-        # Now read the AI reply (black plays automatically)
+        # IA move will be handled asynchronously
+        self.root.after(50, self.play_ai_move)
+
+    def play_ai_move(self):
+        # Read AI board (this is called AFTER Tkinter refresh)
         answer = self.engine.read_board()
         self.act(answer)
-
-
 
     def act(self, answer: str):
         self.board.update(answer)
