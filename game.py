@@ -44,10 +44,10 @@ class Engine():
         self.process = subprocess.Popen([engine], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, bufsize=1)
 
     def send_request(self, request: str):
-        if self.process.stdin:
-            self.process.stdin.write(request+"\n")
-            self.process.stdin.flush()
-            return self.read_board()
+        self.process.stdin.write(request+"\n")
+        self.process.stdin.flush()
+        return self.read_board()
+
             
         
     def close(self):
@@ -55,14 +55,14 @@ class Engine():
             self.process.terminate()
 
     def read_board(self):
-        if self.process.stdout:
-            lines = []
-            for _ in range(8):
-                lines.append(self.process.stdout.readline().strip())
-            self.process.stdout.flush()
-            return lines
-        else:
-            print(f"Board couldn't be read.\n")
+        lines = []
+        while len(lines) < 8:
+            line = self.process.stdout.readline()
+            if not line.strip():     # Ignore lignes vides
+                continue
+            lines.append(line.strip())
+        return lines
+
 
 
 
@@ -167,9 +167,15 @@ class DisplayGame():
             col_ind = (col_ind+1)%2
 
     def submit_move(self, pos1, pos2):
-        command = f"{pos1} {pos2}"
-        answer = self.engine.send_request(command)
+        # Send human move, read board after that move
+        answer = self.engine.send_request(f"{pos1} {pos2}")
         self.act(answer)
+
+        # Now read the AI reply (black plays automatically)
+        answer = self.engine.read_board()
+        self.act(answer)
+
+
 
     def act(self, answer: str):
         self.board.update(answer)

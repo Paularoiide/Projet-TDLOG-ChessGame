@@ -40,10 +40,11 @@ int main() {
     g.startGame();
 
     print_board(g.board());
+    std::cout << std::flush;   // <-- AJOUT ESSENTIEL
 
     // White = human, Black = AI
     std::unique_ptr<Player> white = std::make_unique<HumanPlayer>();
-    std::unique_ptr<Player> black = std::make_unique<AIPlayer>(5);
+    std::unique_ptr<Player> black = std::make_unique<AIPlayer>(3);
 
     while (true) {
         Player& current = (g.currentTurn() == Color::White ? *white : *black);
@@ -51,21 +52,21 @@ int main() {
         Move m = current.getMove(g);
 
         if (m.from == -1 || m.to == -1)
-            break; // Quit or bad input
+            break;
 
         if (g.playMove(m)) {
             print_board(g.board());
-            GameState state = g.gameState();
+            std::cout << std::flush; // <-- AJOUT CRITIQUE
 
+            GameState state = g.gameState();
             if (state == GameState::Checkmate || state == GameState::Stalemate)
                 break;
         }
         else {
-            // INVALID → reprint board (for Python interface)
             print_board(g.board());
+            std::cout << std::flush; // <-- AJOUT AUSSI
         }
     }
 
     return 0;
 }
-

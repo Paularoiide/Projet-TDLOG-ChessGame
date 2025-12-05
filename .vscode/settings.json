@@ -3,5 +3,6 @@
         "__split_buffer": "cpp",
         "deque": "cpp",
         "vector": "cpp"
-    }
+    },
+    "cmake.sourceDirectory": "C:/Users/PaulA/OneDrive/Bureau/Projet-TDLOG-ChessGame/Projet-TDLOG-ChessGame/TDLOG_ChessGame"
 }

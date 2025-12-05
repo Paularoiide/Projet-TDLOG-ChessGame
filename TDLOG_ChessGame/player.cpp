@@ -14,19 +14,39 @@ static int parse(const std::string& s) {
 // HumanPlayer: reads a line from stdin
 // ----------------------------------
 Move HumanPlayer::getMove(Game& g) {
-    std::string line, a, b, promoWord;
+    std::string line;
 
-    if (!std::getline(std::cin, line)) return Move(-1, -1);
+    // Loop until we get a non-empty, valid line
+    while (true) {
+        if (!std::getline(std::cin, line))
+            return Move(-1, -1); // EOF or error
+
+        // The KEY FIX: ignore empty lines
+        if (line.empty() || line == "\r")
+            continue;
+
+        break;
+    }
 
     std::stringstream ss(line);
+    std::string a, b, promoWord;
+
     ss >> a;
-    if (!(ss >> b)) return Move(-1, -1);
+    if (!(ss >> b))
+        return Move(-1, -1);
+
     ss >> promoWord;
 
+    auto parse = [](const std::string& s) -> int {
+        if (s.size() < 2) return -1;
+        return (s[1] - '1') * 8 + (s[0] - 'a');
+    };
+
     int from = parse(a);
-    int to   = parse(b);
+    int to = parse(b);
 
     PieceType promo = PieceType::None;
+
     if (!promoWord.empty()) {
         char p = std::tolower(promoWord[0]);
         if (p == 'q') promo = PieceType::Queen;
@@ -37,6 +57,7 @@ Move HumanPlayer::getMove(Game& g) {
 
     return Move(from, to, promo);
 }
+
 
 // ----------------------------------
 // AIPlayer: calls findBestMove()
