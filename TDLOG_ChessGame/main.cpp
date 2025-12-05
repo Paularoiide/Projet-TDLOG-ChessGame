@@ -7,6 +7,8 @@
 #include "piece.h" 
 #include "board.h"
 #include "move.h"
+#include <memory>
+#include "player.h"
 
 // Helper function to print the board
 void print_board(const Board& b) {
@@ -34,102 +36,37 @@ void print_board(const Board& b) {
 }
 
 int main() {
-    Game g; 
+    Game g;
     g.startGame();
-    
+
     print_board(g.board());
+    std::cout << std::flush;   // <-- AJOUT ESSENTIEL
 
-    //std::cout << "\nCommands:\n";
-    //std::cout << " - Standard : e2 e4\n";
-    //std::cout << " - Promotion: a7 a8 q (or a7 a8q)\n";
-    //std::cout << " - Quit     : q\n\n";
+    // White = human, Black = AI
+    std::unique_ptr<Player> white = std::make_unique<HumanPlayer>();
+    std::unique_ptr<Player> black = std::make_unique<AIPlayer>(3);
 
-    // Lambda to convert "e2" -> index 0-63
-    auto parse = [](const std::string& s) -> int { 
-        if (s.length() < 2) return -1; 
-        int file = s[0] - 'a';
-        int rank = s[1] - '1';
-        if (file < 0 || file > 7 || rank < 0 || rank > 7) return -1;
-        return rank * 8 + file; 
-    };
-
-    std::string line;
     while (true) {
-        //std::cout << (g.currentTurn() == Color::White ? "[White]" : "[Black]") << " > ";
-        
-        // Read the full line to handle inputs with spaces like "a7 a8 q"
-        if (!std::getline(std::cin, line)) break;
-        if (line.empty()) continue;
+        Player& current = (g.currentTurn() == Color::White ? *white : *black);
 
-        std::stringstream ss(line);
-        std::string word1, word2, word3;
-        
-        ss >> word1;
-        if (word1 == "q") break; // Quit command
+        Move m = current.getMove(g);
 
-        if (!(ss >> word2)) {
-            //std::cout << "Invalid format. Usage: e2 e4\n";
-            continue;
-        }
-        
-        // Optional 3rd word for promotion (e.g. "q" in "a7 a8 q")
-        ss >> word3; 
+        if (m.from == -1 || m.to == -1)
+            break;
 
-        // 1. Parse coordinates
-        int from = parse(word1);
-        int to = parse(word2);
-
-        if (from == -1 || to == -1) {
-             //std::cout << "Invalid coordinates.\n";
-             continue;
-        }
-
-        PieceType promo = PieceType::None;
-
-        // 2. Promotion detection
-        // Case A: Attached (a7 a8q) -> Check end of word2
-        if (word2.length() > 2) {
-            char p = std::tolower(word2[2]);
-            if (p == 'q') promo = PieceType::Queen;
-            else if (p == 'r') promo = PieceType::Rook;
-            else if (p == 'b') promo = PieceType::Bishop;
-            else if (p == 'n') promo = PieceType::Knight;
-        }
-        // Case B: Separated (a7 a8 q) -> Check word3
-        else if (!word3.empty()) {
-            char p = std::tolower(word3[0]);
-            if (p == 'q') promo = PieceType::Queen;
-            else if (p == 'r') promo = PieceType::Rook;
-            else if (p == 'b') promo = PieceType::Bishop;
-            else if (p == 'n') promo = PieceType::Knight;
-        }
-
-        // 3. Play move
-        Move m(from, to, promo);
-        
         if (g.playMove(m)) {
-            //std::cout << "Move played: " << word1 << " -> " << word2 << (promo != PieceType::None ? " (Promo)" : "") << "\n";
             print_board(g.board());
+            std::cout << std::flush; // <-- AJOUT CRITIQUE
 
-            // 4. Game State
             GameState state = g.gameState();
-            if (state == GameState::Check) {
-                //std::cout << "  CHECK!\n";
-            }
-            else if (state == GameState::Checkmate) {
-                //std::string winner = (g.currentTurn() == Color::White) ? "Black" : "White";
-                //std::cout << "\n CHECKMATE! " << winner << " wins the game!\n";
-                break; 
-            }
-            else if (state == GameState::Stalemate) {
-                //std::cout << "\n½ STALEMATE! Draw.\n";
-                break; 
-            }
-        } else {
-            //std::cout << " INVALID MOVE! (Check rules, promotion, or if in check)\n";
+            if (state == GameState::Checkmate || state == GameState::Stalemate)
+                break;
+        }
+        else {
             print_board(g.board());
+            std::cout << std::flush; // <-- AJOUT AUSSI
         }
     }
-    
+
     return 0;
 }
