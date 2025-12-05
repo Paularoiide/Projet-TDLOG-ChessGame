@@ -45,49 +45,44 @@ static int search(Board board,
                   int alpha,
                   int beta
                   ){
-    vector<Move> LegalMoves = board.generateLegalMoves(toMove);
-    if (LegalMoves.empty())
-    {
+    std::vector<Move> LegalMoves = board.generateLegalMoves(toMove);
+
+    if (LegalMoves.empty()) {
         bool inCheck = board.isInCheck(toMove);
-        if (inCheck){
+        if (inCheck) {
             int mateScore = 100000;
             return (toMove == root ? -mateScore : mateScore);
         }
-        else{
-            return 0;
-        }
+        return 0;
     }
 
-    if (depth ==0)
-    {
-        return evaluate(board,root);
-    }
+    if (depth == 0)
+        return evaluate(board, root);
 
-    else
-    {
-        bool maximizing = (toMove == root);
-        int bestScore = maximizing ? -1000000 : 1000000;
+    bool maximizing = (toMove == root);
+    int bestScore = maximizing ? -1000000 : 1000000;
 
-        for (const Move& m : LegalMoves) {
-            Board child = board;
-            child.movePiece(m.from,m.to);
+    for (const Move& m : LegalMoves) {
 
-            int score = search(child,opposite(toMove),root,depth-1,alpha,beta);
-            if (maximizing) {
-                if (score > bestScore) bestScore = score;
-                if (score > alpha) alpha = score;
-            } else {
-                if (score < bestScore) bestScore = score;
-                if (score < beta) beta = score;
-            }
+        Board child = board;
+        child.movePiece(m.from, m.to, m.promotion);   // FIX !!!
 
-            // Alpha-beta pruning
-            if (beta <= alpha) break;
+        int score = search(child, opposite(toMove), root, depth - 1, alpha, beta);
+
+        if (maximizing) {
+            if (score > bestScore) bestScore = score;
+            if (score > alpha) alpha = score;
+        } else {
+            if (score < bestScore) bestScore = score;
+            if (score < beta) beta = score;
         }
 
-        return bestScore;
+        if (beta <= alpha) break;
     }
+
+    return bestScore;
 }
+
 
 
 void Game::startGame() {
@@ -156,7 +151,7 @@ Move Game::findBestMove(int depth) const {
 
     for (const Move& m : moves) {
         Board child = board_;
-        child.movePiece(m.from, m.to);
+        child.movePiece(m.from, m.to, m.promotion);  // FIX !!!
 
         int score = search(child, opposite(side), root, depth - 1, alpha, beta);
 
@@ -166,6 +161,7 @@ Move Game::findBestMove(int depth) const {
         }
         if (score > alpha) alpha = score;
     }
+
 
     return bestMove;
 }

@@ -72,28 +72,24 @@ PieceType Board::getPieceTypeAt(int square, Color& color) const {
     return PieceType::None;
 }
 
-
 void Board::movePiece(int from, int to, PieceType promotion) {
     Color color;
     PieceType pt = getPieceTypeAt(from, color);
     if (pt == PieceType::None) return;
 
-    // 1. Detection: Is this an EN PASSANT capture?
-    // This is the case if a Pawn moves to the en-passant target square
+    // 1. Detect En Passant
     bool isEnPassant = (pt == PieceType::Pawn && to == enPassantTarget_);
 
-    // 2. Handle En-Passant capture (Remove the opponent's pawn)
-    // The opponent's pawn is NOT on 'to', it is behind (if white moves up) or in front (if black moves down).
+    // 2. Handle En Passant capture (remove the pawn behind)
     if (isEnPassant) {
         int capturedSq = (color == Color::White) ? to - 8 : to + 8;
-        // Force removal of the opponent's pawn
         popBit(bitboards_[static_cast<int>(opposite(color))][static_cast<int>(PieceType::Pawn)], capturedSq);
-        // Note: occupancy will be updated globally at the end of the function
     }
 
-    // 3. Handle Castling (Rights) - Unchanged
+    // 3. Handle castling rights on king/rook moves
     if (pt == PieceType::King) {
-        disableCastle(color, true); disableCastle(color, false);
+        disableCastle(color, true);
+        disableCastle(color, false);
     }
     if (pt == PieceType::Rook) {
         if (color == Color::White && from == 0)  disableCastle(Color::White, false);
@@ -102,43 +98,41 @@ void Board::movePiece(int from, int to, PieceType promotion) {
         if (color == Color::Black && from == 63) disableCastle(Color::Black, true);
     }
 
-    // 4. Handle Standard Capture (Unchanged)
-    // Note: If it's En Passant, targetPt will be None (since the 'to' square is empty), so this block won't execute, which is correct.
+    // 4. Handle normal capture (cannot capture own piece)
     Color targetColor;
     PieceType targetPt = getPieceTypeAt(to, targetColor);
     if (targetPt != PieceType::None) {
+        if (targetColor == color && !isEnPassant) {
+            // Friendly capture should never happen on a legal move; fail-safe early return.
+            return;
+        }
         popBit(bitboards_[static_cast<int>(targetColor)][static_cast<int>(targetPt)], to);
-        if (targetPt == PieceType::Rook) { // If a rook is captured, remove castling rights
-             if (targetColor == Color::White && to == 0)  disableCastle(Color::White, false);
-             if (targetColor == Color::White && to == 7)  disableCastle(Color::White, true);
-             if (targetColor == Color::Black && to == 56) disableCastle(Color::Black, false);
-             if (targetColor == Color::Black && to == 63) disableCastle(Color::Black, true);
+
+        // Capturing a rook may remove castling rights
+        if (targetPt == PieceType::Rook) {
+            if (targetColor == Color::White && to == 0)  disableCastle(Color::White, false);
+            if (targetColor == Color::White && to == 7)  disableCastle(Color::White, true);
+            if (targetColor == Color::Black && to == 56) disableCastle(Color::Black, false);
+            if (targetColor == Color::Black && to == 63) disableCastle(Color::Black, true);
         }
     }
 
-    // 5. Handle Castling Move (Move the rook) - Unchanged
+    // 5. Handle rook move in castling (king move of two squares)
     if (pt == PieceType::King && std::abs(to - from) == 2) {
-        if (color == Color::White && to == 6) { popBit(bitboards_[0][3], 7); setBit(bitboards_[0][3], 5); }
-        if (color == Color::White && to == 2) { popBit(bitboards_[0][3], 0); setBit(bitboards_[0][3], 3); }
-        if (color == Color::Black && to == 62) { popBit(bitboards_[1][3], 63); setBit(bitboards_[1][3], 61); }
-        if (color == Color::Black && to == 58) { popBit(bitboards_[1][3], 56); setBit(bitboards_[1][3], 59); }
+        if (color == Color::White && to == 6) { popBit(bitboards_[0][3], 7);  setBit(bitboards_[0][3], 5); }
+        if (color == Color::White && to == 2) { popBit(bitboards_[0][3], 0);  setBit(bitboards_[0][3], 3); }
+        if (color == Color::Black && to == 62){ popBit(bitboards_[1][3], 63); setBit(bitboards_[1][3], 61); }
+        if (color == Color::Black && to == 58){ popBit(bitboards_[1][3], 56); setBit(bitboards_[1][3], 59); }
     }
 
-    // 6. UPDATE THE enPassantTarget_ VARIABLE
-    // By default, reset the target because the opportunity only lasts one turn
-    int nextEnPassantTarget = -1; 
-
-    // If it is a PAWN doing a DOUBLE PUSH, set the new target
+    // 6. Update en-passant target (only valid one ply)
+    int nextEnPassantTarget = -1;
     if (pt == PieceType::Pawn && std::abs(to - from) == 16) {
-        // The target is the intermediate square
         nextEnPassantTarget = (from + to) / 2;
     }
-    
-    // Apply the state change
     enPassantTarget_ = nextEnPassantTarget;
 
-
-    // 7. Final piece movement (Unchanged)
+    // 7. Move the piece (with optional promotion)
     popBit(bitboards_[static_cast<int>(color)][static_cast<int>(pt)], from);
     if (promotion != PieceType::None) {
         setBit(bitboards_[static_cast<int>(color)][static_cast<int>(promotion)], to);
@@ -166,21 +160,19 @@ std::vector<Move> Board::generateLegalMoves(Color turn) const {
     int c = static_cast<int>(turn);
     int opp = c ^ 1;
 
-    Bitboard us = occupancies_[c];
+    Bitboard us   = occupancies_[c];
     Bitboard them = occupancies_[opp];
-    Bitboard occ = occupancies_[2];
+    Bitboard occ  = occupancies_[2];
 
     // --- 1. PAWNS ---
     Bitboard pawns = bitboards_[c][static_cast<int>(PieceType::Pawn)];
     int up = (turn == Color::White) ? 8 : -8;
-    int startRank = (turn == Color::White) ? 1 : 6;
-    int promotionRank = (turn == Color::White) ? 7 : 0; // Ligne de promotion
+    int startRank     = (turn == Color::White) ? 1 : 6;
+    int promotionRank = (turn == Color::White) ? 7 : 0;
 
-    // Helper pour ajouter un mouvement de pion (avec ou sans promotion)
     auto addPawnMove = [&](int f, int t) {
         int r = t / 8;
         if (r == promotionRank) {
-            // Promotion : on ajoute les 4 variantes
             moves.emplace_back(f, t, PieceType::Queen);
             moves.emplace_back(f, t, PieceType::Rook);
             moves.emplace_back(f, t, PieceType::Bishop);
@@ -201,7 +193,7 @@ std::vector<Move> Board::generateLegalMoves(Color turn) const {
         if (target >= 0 && target < 64 && !getBit(occ, target)) {
             addPawnMove(sq, target);
 
-            // B. Double push (seulement si le single push était valide)
+            // B. Double push
             if (y == startRank) {
                 int doubleTarget = sq + (up * 2);
                 if (!getBit(occ, doubleTarget)) {
@@ -209,37 +201,33 @@ std::vector<Move> Board::generateLegalMoves(Color turn) const {
                 }
             }
         }
-        
-        // C. Captures (Standard + En Passant)
+
+        // C. Captures (standard + en passant)
         int captureOffsets[] = {up - 1, up + 1};
         for (int offset : captureOffsets) {
             int capSq = sq + offset;
-            
-            // geometric checks
+
             if (capSq < 0 || capSq >= 64) continue;
             int capX = capSq % 8;
             if (std::abs(capX - x) > 1) continue;
 
-            // Capture conditions: is enemy piece OR is en-passant target
-            bool isEnPassant = (capSq == enPassantTarget_);
-            bool isEnemy = getBit(them, capSq);
+            bool isEnemy     = getBit(them, capSq);
+            bool isEnPassant = (capSq == enPassantTarget_ && !getBit(occ, capSq));
+
+            // Never capture our own piece
+            if (getBit(us, capSq)) continue;
 
             if (isEnemy || isEnPassant) {
-                // Move creation
                 int r = capSq / 8;
-                
-                // Note: En passant never occurs on the last rank,
-                // so no conflict with promotion here.
+
                 if (r == promotionRank) {
-                    // Promotion with capture
-                    moves.emplace_back(sq, capSq, PieceType::Queen); moves.back().isCapture = true;
-                    moves.emplace_back(sq, capSq, PieceType::Rook);  moves.back().isCapture = true;
+                    moves.emplace_back(sq, capSq, PieceType::Queen);  moves.back().isCapture = true;
+                    moves.emplace_back(sq, capSq, PieceType::Rook);   moves.back().isCapture = true;
                     moves.emplace_back(sq, capSq, PieceType::Bishop); moves.back().isCapture = true;
                     moves.emplace_back(sq, capSq, PieceType::Knight); moves.back().isCapture = true;
                 } else {
-                    // Standard capture OR En Passant
                     moves.emplace_back(sq, capSq);
-                    moves.back().isCapture = true; // En Passant IS a capture
+                    moves.back().isCapture = true; // en passant is still a capture
                 }
             }
         }
@@ -269,6 +257,8 @@ std::vector<Move> Board::generateLegalMoves(Color turn) const {
     for (int sq = 0; sq < 64; ++sq) {
         if (!getBit(king, sq)) continue;
         int x = sq % 8;
+
+        // Normal king moves
         for (int offset : kingOffsets) {
             int target = sq + offset;
             if (target >= 0 && target < 64) {
@@ -282,17 +272,17 @@ std::vector<Move> Board::generateLegalMoves(Color turn) const {
             }
         }
 
-        // --- 3.5 KING CASTLING ---
+        // Castling attempts from king square sq
         auto tryCastling = [&](bool kingSide) {
             if (!canCastle(turn, kingSide)) return;
 
-            int rookSq, path1, path2, finalKingSq;
+            int path1, path2, finalKingSq;
             if (turn == Color::White) {
-                if (kingSide) { rookSq=7; path1=5; path2=6; finalKingSq=6; }
-                else          { rookSq=0; path1=3; path2=2; finalKingSq=2; }
+                if (kingSide) { path1 = 5; path2 = 6; finalKingSq = 6; }
+                else          { path1 = 3; path2 = 2; finalKingSq = 2; }
             } else {
-                if (kingSide) { rookSq=63; path1=61; path2=62; finalKingSq=62; }
-                else          { rookSq=56; path1=59; path2=58; finalKingSq=58; }
+                if (kingSide) { path1 = 61; path2 = 62; finalKingSq = 62; }
+                else          { path1 = 59; path2 = 58; finalKingSq = 58; }
             }
 
             if (getBit(occupancies_[2], path1)) return;
@@ -305,8 +295,8 @@ std::vector<Move> Board::generateLegalMoves(Color turn) const {
             moves.emplace_back(sq, finalKingSq);
         };
 
-        tryCastling(true);
-        tryCastling(false);
+        tryCastling(true);   // king side
+        tryCastling(false);  // queen side
     }
 
     // --- 4. SLIDING PIECES ---
@@ -320,14 +310,14 @@ std::vector<Move> Board::generateLegalMoves(Color turn) const {
             for (int d = 0; d < numDirs; ++d) {
                 int offset = dirs[d];
                 int stepX = 0, stepY = 0;
-                if (offset == -8) { stepX=0; stepY=-1; }
-                else if (offset == 8) { stepX=0; stepY=1; }
-                else if (offset == -1) { stepX=-1; stepY=0; }
-                else if (offset == 1) { stepX=1; stepY=0; }
-                else if (offset == -9) { stepX=-1; stepY=-1; }
-                else if (offset == -7) { stepX=1; stepY=-1; }
-                else if (offset == 7) { stepX=-1; stepY=1; }
-                else if (offset == 9) { stepX=1; stepY=1; }
+                if (offset == -8) { stepX = 0;  stepY = -1; }
+                else if (offset == 8) { stepX = 0;  stepY = 1; }
+                else if (offset == -1) { stepX = -1; stepY = 0; }
+                else if (offset == 1) { stepX = 1;  stepY = 0; }
+                else if (offset == -9) { stepX = -1; stepY = -1; }
+                else if (offset == -7) { stepX = 1;  stepY = -1; }
+                else if (offset == 7) { stepX = -1; stepY = 1; }
+                else if (offset == 9) { stepX = 1;  stepY = 1; }
 
                 int curSq = sq;
                 int curX = x;
@@ -339,13 +329,13 @@ std::vector<Move> Board::generateLegalMoves(Color turn) const {
                     curSq = curY * 8 + curX;
 
                     if (curX < 0 || curX > 7 || curY < 0 || curY > 7) break;
-                    if (getBit(us, curSq)) break; 
+                    if (getBit(us, curSq)) break;
 
                     Move m(sq, curSq);
                     if (getBit(them, curSq)) {
                         m.isCapture = true;
                         moves.push_back(m);
-                        break; 
+                        break;
                     }
                     moves.push_back(m);
                 }
@@ -353,20 +343,18 @@ std::vector<Move> Board::generateLegalMoves(Color turn) const {
         }
     };
 
-    generateSlidingMoves(PieceType::Rook, rookDirs, 4);
+    generateSlidingMoves(PieceType::Rook,   rookDirs,   4);
     generateSlidingMoves(PieceType::Bishop, bishopDirs, 4);
-    generateSlidingMoves(PieceType::Queen, rookDirs, 4);
-    generateSlidingMoves(PieceType::Queen, bishopDirs, 4);
+    generateSlidingMoves(PieceType::Queen,  rookDirs,   4);
+    generateSlidingMoves(PieceType::Queen,  bishopDirs, 4);
 
-    // --- FILTRAGE LÉGALITÉ (CHECK) ---
+    // --- Filter out moves that leave king in check ---
     std::vector<Move> realLegalMoves;
     realLegalMoves.reserve(moves.size());
 
     for (const auto& move : moves) {
         Board tempBoard = *this;
-        // Important: bien passer la promotion pour simuler correctement
-        tempBoard.movePiece(move.from, move.to, move.promotion); 
-
+        tempBoard.movePiece(move.from, move.to, move.promotion);
         if (!tempBoard.isInCheck(turn)) {
             realLegalMoves.push_back(move);
         }
@@ -377,16 +365,21 @@ std::vector<Move> Board::generateLegalMoves(Color turn) const {
 
 int Board::getKingSquare(Color c) const {
     Bitboard kingBB = bitboards_[static_cast<int>(c)][static_cast<int>(PieceType::King)];
-    // __builtin_ctzll is a fast GCC/Clang builtin to find the first set bit
-    // If you are on Windows (MSVC), use _BitScanForward64 or a manual loop
-    if (kingBB == 0) return -1; // Error case (no king)
+    if (kingBB == 0) return -1;
+#if defined(_MSC_VER)
+    // If using MSVC, you'd normally use _BitScanForward64; simplified fallback:
+    for (int i = 0; i < 64; ++i)
+        if (getBit(kingBB, i)) return i;
+    return -1;
+#else
     return __builtin_ctzll(kingBB);
+#endif
 }
 
 bool Board::isInCheck(Color c) const {
     int kingSq = getKingSquare(c);
     if (kingSq == -1) return false;
-    return isSquareAttacked(kingSq, opposite(c)); // Is it attacked by the opponent?
+    return isSquareAttacked(kingSq, opposite(c));
 }
 
 bool Board::isSquareAttacked(int square, Color attacker) const {
@@ -397,26 +390,24 @@ bool Board::isSquareAttacked(int square, Color attacker) const {
     Bitboard enemyBishops = bitboards_[static_cast<int>(attacker)][static_cast<int>(PieceType::Bishop)];
     Bitboard enemyQueens  = bitboards_[static_cast<int>(attacker)][static_cast<int>(PieceType::Queen)];
 
-    // 1. Pawn attacks
-    // If the attacker is White, its pawns attack upwards (+7, +9).
-    // So from the target square, we look downwards (-7, -9) for a white pawn.
-    int pawnDir = (attacker == Color::White) ? -1 : 1;
-    // Note: pawnDir is reversed here because we look from the attacked square backwards
-
     int x = square % 8;
-    // Left diagonal (from the pawn's point of view)
-    int attackSq1 = square + (pawnDir * 8) - 1;
-    if (attackSq1 >= 0 && attackSq1 < 64 && std::abs((attackSq1 % 8) - x) == 1) {
-        if (getBit(enemyPawns, attackSq1)) return true;
-    }
-    // Right diagonal
-    int attackSq2 = square + (pawnDir * 8) + 1;
-    if (attackSq2 >= 0 && attackSq2 < 64 && std::abs((attackSq2 % 8) - x) == 1) {
-        if (getBit(enemyPawns, attackSq2)) return true;
+
+    // 1. Pawn attacks (from attacker towards square)
+    if (attacker == Color::White) {
+        // White pawns attack +7 and +9 (from pawn POV), so from target square we look at -7 and -9
+        int s1 = square - 7;
+        int s2 = square - 9;
+        if (s1 >= 0 && (s1 % 8) != 0     && getBit(enemyPawns, s1)) return true; // file not 'a'
+        if (s2 >= 0 && (s2 % 8) != 7     && getBit(enemyPawns, s2)) return true; // file not 'h'
+    } else {
+        // Black pawns attack -7 and -9, so from target square we look at +7 and +9
+        int s1 = square + 7;
+        int s2 = square + 9;
+        if (s1 < 64 && (s1 % 8) != 7     && getBit(enemyPawns, s1)) return true; // file not 'h'
+        if (s2 < 64 && (s2 % 8) != 0     && getBit(enemyPawns, s2)) return true; // file not 'a'
     }
 
     // 2. Knight attacks
-    // Reuse the offsets defined above (make sure they are visible or redeclare them)
     const int kOffsets[] = {-17, -15, -10, -6, 6, 10, 15, 17};
     for (int offset : kOffsets) {
         int target = square + offset;
@@ -425,7 +416,7 @@ bool Board::isSquareAttacked(int square, Color attacker) const {
         }
     }
 
-    // 3. King attacks (to prevent two kings from being adjacent)
+    // 3. King attacks (adjacent squares)
     const int kiOffsets[] = {-9, -8, -7, -1, 1, 7, 8, 9};
     for (int offset : kiOffsets) {
         int target = square + offset;
@@ -434,18 +425,11 @@ bool Board::isSquareAttacked(int square, Color attacker) const {
         }
     }
 
-    // 4. Sliding attacks (Rooks/Queens and Bishops/Queens)
-    // We cast rays from 'square'. If we hit a piece:
-    // - If it's an enemy Rook/Queen (orthogonal ray) -> TRUE
-    // - If it's an enemy Bishop/Queen (diagonal ray) -> TRUE
-    // - Otherwise -> STOP (blocked)
-
-    // Orthogonal (Rooks + Queens)
+    // 4. Sliding attacks: rooks/queens on orthogonals
     const int orthoDirs[] = {-8, 8, -1, 1};
     for (int step : orthoDirs) {
         int curr = square;
         while (true) {
-            // Edge checks (ugly but necessary without a 10x12 mailbox)
             int cx = curr % 8;
             if ((step == 1 && cx == 7) || (step == -1 && cx == 0)) break;
 
@@ -454,20 +438,19 @@ bool Board::isSquareAttacked(int square, Color attacker) const {
 
             if (isSquareOccupied(curr)) {
                 if (getBit(enemyRooks, curr) || getBit(enemyQueens, curr)) return true;
-                break; // Blocked by another piece (friendly or non-attacking enemy)
+                break;
             }
         }
     }
 
-    // Diagonals (Bishops + Queens)
+    // 5. Sliding attacks: bishops/queens on diagonals
     const int diagDirs[] = {-9, -7, 7, 9};
     for (int step : diagDirs) {
         int curr = square;
         while (true) {
             int cx = curr % 8;
-            // Precise edge checks for diagonals
-            if ((step == -9 || step == 7) && cx == 0) break; // Left edge
-            if ((step == 9 || step == -7) && cx == 7) break; // Right edge
+            if ((step == -9 || step == 7) && cx == 0) break; // left edge
+            if ((step == 9  || step == -7) && cx == 7) break; // right edge
 
             curr += step;
             if (curr < 0 || curr >= 64) break;
@@ -483,7 +466,6 @@ bool Board::isSquareAttacked(int square, Color attacker) const {
 }
 
 bool Board::isSquareOccupied(int square) const {
-    // occupancies_[2] contains the union of white and black pieces
     return getBit(occupancies_[2], square);
 }
 
@@ -496,5 +478,3 @@ void Board::disableCastle(Color c, bool kingSide) {
     if (c == Color::White) castleRights_[kingSide ? 0 : 1] = false;
     else                   castleRights_[kingSide ? 2 : 3] = false;
 }
-
-
