@@ -94,7 +94,7 @@ int main() {
         }
 
         // --- TOUR IA ---
-        Move aiMove = AI::getBestMove(game.board(), 4, game.currentTurn());
+        Move aiMove = AI::getBestMove(game.board(), 5, game.currentTurn());
         game.playMove(aiMove);
 
         // On envoie le plateau après le coup IA
