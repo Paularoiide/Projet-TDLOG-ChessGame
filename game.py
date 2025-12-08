@@ -1,9 +1,9 @@
 import tkinter as tk
 import subprocess
 import enum
-import threading
-import queue
 import os
+import time
+
 
 
 COLORS = ["#F0D9B5", "#B58863", "#BBCB2B"]
@@ -37,16 +37,16 @@ class Variante(enum.Enum):
     CLASSIC = 0
 
 class Engine():
-    def __init__(self, engine:str):
+    def __init__(self, engine:str, nb_ai:int =0):
         if not os.path.exists(engine):
             raise FileNotFoundError(f"Moteur introuvable à {engine}")
-        
         self.process = subprocess.Popen([engine], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, bufsize=1)
 
-    def send_request(self, request: str):
-        if self.process.stdin:
-            self.process.stdin.write(request+"\n")
-            self.process.stdin.flush()
+    def send_request(self, request: str|None):
+        if self.process.stdin :
+            if request is not None:
+                self.process.stdin.write(request+"\n")
+                self.process.stdin.flush()
             return self.read_board()
             
         
@@ -137,11 +137,14 @@ class Board():
 
 
 class DisplayGame():
-    def __init__(self, root, variante: Variante, engine: str):
+    def __init__(self, root, variante: Variante, engine: str, nb_ai: int =0):
         self.root = root
         self.board = Board(variante)
-        self.engine = Engine(engine)
-        self.root.title("Chess Game")
+        self.engine = Engine(engine, nb_ai)
+        assert(0<=nb_ai<=2), "Number of AI must be 0, 1 or 2!"
+        self.gamemode = "PvP" if nb_ai==0 else "PvAI" if nb_ai==1 else "AIvAI"
+        title = "Chess Game : " + self.gamemode
+        self.root.title(title)
         self.canvas = tk.Canvas(root, width=BOARD_SIZE, height=BOARD_SIZE)
         self.canvas.pack()
         self.move_handler = Move(self.canvas, self.submit_move)
@@ -168,12 +171,19 @@ class DisplayGame():
 
     def submit_move(self, pos1, pos2):
         command = f"{pos1} {pos2}"
+        self.ask_engine(command)
+        if self.gamemode=="PvAI":
+            self.ask_engine()
+
+    def ask_engine(self, command=None):
+        if command is None:
+            time.sleep(0.5)
         answer = self.engine.send_request(command)
         self.act(answer)
 
     def act(self, answer: str):
-        self.board.update(answer)
-        self.draw_board()
+            self.board.update(answer)
+            self.draw_board()
 
 
 
@@ -186,8 +196,7 @@ if __name__== "__main__":
         engine = os.path.join(folder, "TDLOG_ChessGame")
 
     assert(os.path.exists(engine)), f"Engine not found"
-
-    game = DisplayGame(root, Variante.CLASSIC, engine)
+    game = DisplayGame(root, Variante.CLASSIC, engine, nb_ai = 0)
 
     def on_closing():
         game.engine.close()
