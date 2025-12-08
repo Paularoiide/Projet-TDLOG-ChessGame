@@ -57,11 +57,3 @@ Move HumanPlayer::getMove(Game& g) {
 
     return Move(from, to, promo);
 }
-
-
-// ----------------------------------
-// AIPlayer: calls findBestMove()
-// ----------------------------------
-Move AIPlayer::getMove(Game& g) {
-    return g.findBestMove(depth_);
-}
