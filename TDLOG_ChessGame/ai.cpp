@@ -118,7 +118,7 @@ Move AI::getBestMove(const Board& board, int depth, Color turn) {
     std::vector<Move> moves = board.generateLegalMoves(turn);
     if (moves.empty()) return Move(0, 0);
 
-    // Sort to optimize
+    // Tri pour optimisation (Move Ordering)
     std::sort(moves.begin(), moves.end(), [](const Move& a, const Move& b) {
         return a.isCapture > b.isCapture;
     });
@@ -131,10 +131,10 @@ Move AI::getBestMove(const Board& board, int depth, Color turn) {
         Board nextBoard = board;
         nextBoard.movePiece(move.from, move.to, move.promotion);
 
-        // Negamax recursion
+        // Appel récursif
         int score = -negamax(nextBoard, depth - 1, -INF, INF, -colorMultiplier);
 
-        // --- CORRECTION ICI : ON COMMENTE LE PRINT ---
+        // --- CORRECTION : ON COMMENTE L'AFFICHAGE ---
         // std::cout << "Move: " << move.from << "->" << move.to << " Score: " << score << "\n";
         // ---------------------------------------------
 

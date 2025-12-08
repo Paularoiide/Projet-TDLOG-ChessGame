@@ -9,7 +9,7 @@
 #include "ai.h"
 #include "player.h"
 
-// Affiche le plateau brut pour Python
+// Affiche le plateau brut pour Python (8 lignes)
 void print_board_raw(const Board& b) {
     for (int rank = 7; rank >= 0; --rank) {
         for (int file = 0; file < 8; ++file) {
@@ -66,7 +66,7 @@ int main() {
     Game game;
     game.startGame();
 
-    // Etat initial
+    // 1. Envoi état initial
     print_board_raw(game.board());
 
     std::string line;
@@ -74,24 +74,30 @@ int main() {
         if (line == "quit" || line == "q") break;
         if (line.empty()) continue;
 
-        // 1. Joueur Humain
+        // --- TOUR HUMAIN ---
         Move humanMove = parse_move_string(line);
         if (!game.playMove(humanMove)) {
-            // Coup illégal : on renvoie le plateau inchangé
+            // Coup illégal : on renvoie le plateau inchangé pour que Python reste synchro
             print_board_raw(game.board());
             continue; 
         }
 
-        // Envoi plateau après coup humain
+        // On envoie le plateau après le coup humain
         print_board_raw(game.board());
 
-        if (game.gameState() != GameState::Playing) continue;
+        // --- CORRECTION MAJEURE ICI ---
+        // On ne s'arrête QUE si c'est Mat ou Pat. 
+        // Si c'est "Check" (Echec simple), on CONTINUE pour que l'IA se défende.
+        GameState state = game.gameState();
+        if (state == GameState::Checkmate || state == GameState::Stalemate) {
+            continue; // Fin de partie, l'IA ne joue plus
+        }
 
-        // 2. IA
+        // --- TOUR IA ---
         Move aiMove = AI::getBestMove(game.board(), 4, game.currentTurn());
         game.playMove(aiMove);
 
-        // Envoi plateau après coup IA
+        // On envoie le plateau après le coup IA
         print_board_raw(game.board());
     }
 
