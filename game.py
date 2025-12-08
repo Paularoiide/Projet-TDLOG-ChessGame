@@ -2,77 +2,88 @@ import tkinter as tk
 import subprocess
 import enum
 import os
-import time
+import sys
+import stat
 
-
-
+# --- CONSTANTES ---
 COLORS = ["#F0D9B5", "#B58863", "#BBCB2B"]
-
-"""STARTING_BOARDS = []
-STARTING_BOARDS.append(
-    [
-            ["bR", "bN", "bB", "bQ", "bK", "bB", "bN", "bR"],
-            ["bP", "bP", "bP", "bP", "bP", "bP", "bP", "bP"],
-            ["--", "--", "--", "--", "--", "--", "--", "--"],
-            ["--", "--", "--", "--", "--", "--", "--", "--"],
-            ["--", "--", "--", "--", "--", "--", "--", "--"],
-            ["--", "--", "--", "--", "--", "--", "--", "--"],
-            ["wP", "wP", "wP", "wP", "wP", "wP", "wP", "wP"],
-            ["wR", "wN", "wB", "wQ", "wK", "wB", "wN", "wR"],
-        ]
-)"""
-
 BOARD_SIZE = 600
 SQUARE_SIZE = BOARD_SIZE // 8
-
 PIECES = {
     "P": "♙", "R": "♖", "N": "♘", "B": "♗", "Q": "♕", "K": "♔",
     "p": "♟", "r": "♜", "n": "♞", "b": "♝", "q": "♛", "k": "♚",
     "-": " " 
 }
 
-
-
 class Variante(enum.Enum):
     CLASSIC = 0
 
+# --- MOTEUR ---
 class Engine():
-    def __init__(self, engine:str, nb_ai:int =0):
-        if not os.path.exists(engine):
-            raise FileNotFoundError(f"Moteur introuvable à {engine}")
-        self.process = subprocess.Popen([engine], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, bufsize=1)
-
-    def send_request(self, request: str|None):
-        if self.process.stdin :
-            if request is not None:
-                self.process.stdin.write(request+"\n")
-                self.process.stdin.flush()
-            return self.read_board()
-            
+    def __init__(self, engine_path: str, nb_ai: int = 0):
+        if not os.path.exists(engine_path):
+            raise FileNotFoundError(f"Moteur introuvable à : {engine_path}")
         
+        # Force les permissions d'exécution
+        try:
+            st = os.stat(engine_path)
+            os.chmod(engine_path, st.st_mode | stat.S_IEXEC)
+        except Exception:
+            pass
+
+        try:
+            self.process = subprocess.Popen(
+                [engine_path], 
+                stdin=subprocess.PIPE, 
+                stdout=subprocess.PIPE, 
+                stderr=subprocess.PIPE, 
+                text=True, 
+                bufsize=1
+            )
+        except PermissionError:
+            print(f"ERREUR : Permission refusée sur '{engine_path}'.")
+            sys.exit(1)
+        except OSError as e:
+            print(f"ERREUR : Impossible de lancer l'exécutable ({e}).")
+            sys.exit(1)
+
+    def send_request(self, request: str | None):
+        """Envoie une commande et attend la réponse."""
+        if self.process.stdin:
+            if request is not None:
+                try:
+                    self.process.stdin.write(request + "\n")
+                    self.process.stdin.flush()
+                except BrokenPipeError:
+                    print("Erreur : Le moteur C++ s'est arrêté.")
+                    return []
+            return self.read_board()
+        return []
+            
     def close(self):
         if self.process:
             self.process.terminate()
 
     def read_board(self):
+        """Lit 8 lignes valides depuis le C++."""
         lines = []
+        # On lit jusqu'à avoir 8 lignes, ou que le processus meurt
         while len(lines) < 8:
             line = self.process.stdout.readline()
-            if not line.strip():     # Ignore lignes vides
-                continue
-            lines.append(line.strip())
+            if not line: break # Fin du flux (EOF)
+            stripped = line.strip()
+            if not stripped: continue # Ignore les lignes vides
+            lines.append(stripped)
         return lines
 
-
-
-
+# --- LOGIQUE UI ---
 class Move():
     def __init__(self, canvas, move_func):
         self.canvas = canvas
         self.move = move_func
         self.selected = None
-        self.canvas.bind("<Button-1>", self.click)
         self.highlighted = None
+        self.canvas.bind("<Button-1>", self.click)
 
     def highlight(self, col, row):
         x0 = col * SQUARE_SIZE
@@ -82,125 +93,157 @@ class Move():
         self.highlighted = self.canvas.create_rectangle(x0, y0, x1, y1, outline=COLORS[-1], width=4)
 
     def click(self, event):
-        col, row = event.x//SQUARE_SIZE, event.y//SQUARE_SIZE
+        col, row = event.x // SQUARE_SIZE, event.y // SQUARE_SIZE
         pos = f"{chr(col + ord('a'))}{8 - row}"
-
         if self.selected is None:
             self.selected = pos
             self.highlight(col, row)
         else:
-            if self.selected!=pos:
+            if self.selected != pos:
                 self.move(self.selected, pos)
             self.selected = None
-            self.canvas.delete(self.highlighted)
+            if self.highlighted:
+                self.canvas.delete(self.highlighted)
             self.highlighted = None
-
-
-
-        
-
 
 class Board():
     def __init__(self, var: Variante = Variante.CLASSIC):
+        # Initialisation avec des lignes vides, mais sera rempli immédiatement
         self.board = [[] for _ in range(8)]
 
     def __getitem__(self, pos: str):
-        assert(len(pos)==2)
-        col, row = pos[0], pos[1]
-        col = ord(col) - ord('a')
-        row = 8 - int(row)
-        assert(0<=col<8 and 0<=row<8), "index out of bounds"
+        if len(pos) != 2: return None
+        col = ord(pos[0]) - ord('a')
+        row = 8 - int(pos[1])
+        if not (0 <= col < 8 and 0 <= row < 8): return None
+        
+        # Sécurité anti-crash
+        if row >= len(self.board) or col >= len(self.board[row]):
+            return None
+            
         piece = self.board[row][col] 
-        return None if piece == "--" else piece
-    
-    def __setitem__(self, pos: str, val: str):
-        assert(len(pos)==2)
-        col, row = pos[0], pos[1]
-        col = ord(col) - ord('a')
-        print(row)
-        print(type(row))
-        row = 8 - int(row)
-        assert(0<=col<8 and 0<=row<8), "index out of bounds"
-        self.board[row][col] = val
+        return None if piece == "-" else piece
 
-    def update(self, board_output: str):
-        assert(len(board_output)==8), f"Wrong board output from engine"
-        for i in range(8):
-            self.board[i] = (board_output[i].split())[:8]
+    def update(self, board_output: list):
+        """Met à jour le plateau de manière sécurisée."""
+        if len(board_output) != 8:
+            print(f"DEBUG: Reçu {len(board_output)} lignes au lieu de 8. Ignoré.")
+            return 
 
-    """def move(self, pos_i: str, pos_f: str):
-        replaced = self[pos_f]
-        self[pos_f] = self[pos_i]
-        self[pos_i] = "--"
-        return None if replaced == "--" else replaced"""
-    
+        # On construit d'abord un plateau temporaire
+        new_board = []
+        for line in board_output:
+            parts = line.split()
+            # Si une ligne n'a pas exactement 8 cases, c'est une erreur de lecture
+            if len(parts) != 8:
+                print(f"DEBUG: Ligne corrompue reçue : '{line}'")
+                return 
+            new_board.append(parts)
+        
+        # Si tout est bon, on remplace
+        self.board = new_board
 
+    def get_raw_data(self):
+        """Retourne une copie brute des données pour comparaison"""
+        return [row[:] for row in self.board]
 
 class DisplayGame():
-    def __init__(self, root, variante: Variante, engine: str, nb_ai: int =0):
+    def __init__(self, root, variante: Variante, engine_path: str, nb_ai: int = 0):
         self.root = root
         self.board = Board(variante)
-        self.engine = Engine(engine, nb_ai)
-        assert(0<=nb_ai<=2), "Number of AI must be 0, 1 or 2!"
-        self.gamemode = "PvP" if nb_ai==0 else "PvAI" if nb_ai==1 else "AIvAI"
-        title = "Chess Game : " + self.gamemode
-        self.root.title(title)
+        self.engine = Engine(engine_path, nb_ai)
+        self.nb_ai = nb_ai
+        self.gamemode = "PvP" if nb_ai == 0 else "PvAI" if nb_ai == 1 else "AIvAI"
+        
+        self.root.title(f"Chess : {self.gamemode}")
         self.canvas = tk.Canvas(root, width=BOARD_SIZE, height=BOARD_SIZE)
         self.canvas.pack()
         self.move_handler = Move(self.canvas, self.submit_move)
+        
+        # Lecture état initial
         self.act(self.engine.read_board())
 
     def draw_board(self):
         self.canvas.delete("all")
-        col_ind = 0
         for row in range(8):
             for col in range(8):
-                x0 = col * SQUARE_SIZE
-                y0 = row * SQUARE_SIZE
-                x1 = x0 + SQUARE_SIZE
-                y1 = y0 + SQUARE_SIZE
-                self.canvas.create_rectangle(x0, y0, x1, y1, fill=COLORS[col_ind], outline="")
-                pos = f"{chr(col+ord('a'))}{8-row}"
+                x0, y0 = col * SQUARE_SIZE, row * SQUARE_SIZE
+                x1, y1 = x0 + SQUARE_SIZE, y0 + SQUARE_SIZE
+                
+                self.canvas.create_rectangle(x0, y0, x1, y1, fill=COLORS[(row + col) % 2], outline="")
+                
+                # Récupération sécurisée via __getitem__
+                pos = f"{chr(col + ord('a'))}{8 - row}"
                 piece = self.board[pos]
-                if piece is not None:
-                    self.canvas.create_text(
-                        x0 + SQUARE_SIZE // 2, y0 + SQUARE_SIZE // 2, 
-                        text=PIECES[piece], font=("Arial", 32), fill="black")
-                col_ind = (col_ind+1)%2
-            col_ind = (col_ind+1)%2
+                
+                if piece and piece in PIECES:
+                    self.canvas.create_text(x0 + SQUARE_SIZE//2, y0 + SQUARE_SIZE//2, 
+                                          text=PIECES[piece], font=("Arial", 32), fill="black")
 
     def submit_move(self, pos1, pos2):
-        command = f"{pos1} {pos2}"
-        self.ask_engine(command)
-        if self.gamemode=="PvAI":
-            self.ask_engine()
+        # Logique promotion
+        piece = self.board[pos1]
+        # Petite sécurité si clic sur case vide
+        if not piece: return
+
+        is_promo = (piece == 'P' and pos2[1] == '8') or (piece == 'p' and pos2[1] == '1')
+        cmd = f"{pos1} {pos2}" + (" q" if is_promo else "")
+        print(f"Coup joueur: {cmd}")
+
+        # 1. Sauvegarde de l'état actuel
+        previous_state = self.board.get_raw_data()
+
+        # 2. Envoi du coup humain
+        self.ask_engine(cmd)
+        
+        # 3. Vérification : Si le plateau n'a pas changé, le coup était illégal
+        current_state = self.board.get_raw_data()
+        if previous_state == current_state:
+            print(">> Coup illégal détecté (plateau inchangé). L'IA ne joue pas.")
+            return
+
+        # 4. Si coup valide et mode PvAI, l'IA joue
+        if self.gamemode == "PvAI":
+            self.root.update()
+            # On envoie None pour lire la réponse de l'IA (qui joue automatiquement en C++)
+            self.ask_engine(None)
 
     def ask_engine(self, command=None):
-        if command is None:
-            time.sleep(0.5)
-        answer = self.engine.send_request(command)
-        self.act(answer)
+        ans = self.engine.send_request(command)
+        if ans: self.act(ans)
 
-    def act(self, answer: str):
-            self.board.update(answer)
-            self.draw_board()
+    def act(self, answer: list):
+        self.board.update(answer)
+        self.draw_board()
 
-
+# --- RECHERCHE ET LANCEMENT ---
+def find_executable(start_dir, exe_name):
+    print(f"Scanning dans : {start_dir} ...")
+    for root, dirs, files in os.walk(start_dir):
+        if exe_name in files:
+            full_path = os.path.join(root, exe_name)
+            if os.path.isfile(full_path):
+                return full_path
+    return None
 
 if __name__== "__main__":
     root = tk.Tk()
-    folder = "./TDLOG_ChessGame/build"
-    if os.name == 'nt':
-        engine = os.path.join(folder, "TDLOG_ChessGame.exe")
-    else:
-        engine = os.path.join(folder, "TDLOG_ChessGame")
+    
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    target_name = "TDLOG_ChessGame.exe" if os.name == 'nt' else "TDLOG_ChessGame"
+    
+    final_path = find_executable(base_dir, target_name)
 
-    assert(os.path.exists(engine)), f"Engine not found"
-    game = DisplayGame(root, Variante.CLASSIC, engine, nb_ai = 0)
+    if final_path is None:
+        print("ERREUR CRITIQUE : Exécutable introuvable.")
+        sys.exit(1)
 
+    print(f"Moteur trouvé : {final_path}")
+    
+    game = DisplayGame(root, Variante.CLASSIC, final_path, nb_ai=1)
+    
     def on_closing():
         game.engine.close()
         game.root.destroy()
-
     root.protocol("WM_DELETE_WINDOW", on_closing)
     root.mainloop()
