@@ -6,12 +6,16 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 add_executable(TDLOG_ChessGame main.cpp
+    ai.h
+    ai.cpp
     board.cpp
     board.h
     game.cpp
     game.h
     piece.h
     move.h
+    player.h
+    player.cpp
 )
 
 include(GNUInstallDirs)

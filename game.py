@@ -55,14 +55,14 @@ class Engine():
             self.process.terminate()
 
     def read_board(self):
-        if self.process.stdout:
-            lines = []
-            for _ in range(8):
-                lines.append(self.process.stdout.readline().strip())
-            self.process.stdout.flush()
-            return lines
-        else:
-            print(f"Board couldn't be read.\n")
+        lines = []
+        while len(lines) < 8:
+            line = self.process.stdout.readline()
+            if not line.strip():     # Ignore lignes vides
+                continue
+            lines.append(line.strip())
+        return lines
+
 
 
 
