@@ -2,12 +2,13 @@
 #include "board.h"
 #include "move.h"
 #include "piece.h"
+#include "player.h"
 
 // Scoring constants
 const int INF = 50000;        // Infinity
 const int MATE_VALUE = 49000; // Checkmate score (slightly less than infinity to favor quick mates)
 
-class AI {
+class AI : public Player {
 public:
     // Main function called by the main program
     // Note the addition of the 'turn' parameter to know who is playing

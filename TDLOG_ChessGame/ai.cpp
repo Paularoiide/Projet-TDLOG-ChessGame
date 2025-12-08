@@ -3,13 +3,13 @@
 #include <vector>
 #include <iostream>
 
+// ... (Le début du fichier avec les Tables reste inchangé) ...
+// Copiez-collez tout le début du fichier jusqu'à la fonction negamax incluse.
+// Je remets ici juste la fin avec la correction dans getBestMove.
+
 // ==========================================
 // 1. PIECE-SQUARE TABLES (Position Tables)
 // ==========================================
-// These tables define where it is good to place pieces (for White).
-// We will mirror them for Black in the evaluation function.
-
-// Pawns : Encourage advancement and control of the center
 const int pawnTable[64] = {
      0,  0,  0,  0,  0,  0,  0,  0,
     50, 50, 50, 50, 50, 50, 50, 50,
@@ -21,7 +21,6 @@ const int pawnTable[64] = {
      0,  0,  0,  0,  0,  0,  0,  0
 };
 
-// Knights : Strongly encourage the center, penalize the edges
 const int knightTable[64] = {
     -50,-40,-30,-30,-30,-30,-40,-50,
     -40,-20,  0,  0,  0,  0,-20,-40,
@@ -33,7 +32,6 @@ const int knightTable[64] = {
     -50,-40,-30,-30,-30,-30,-40,-50
 };
 
-// Bishops : Better to avoid corners and aim for long diagonals
 const int bishopTable[64] = {
     -20,-10,-10,-10,-10,-10,-10,-20,
     -10,  0,  0,  0,  0,  0,  0,-10,
@@ -45,7 +43,6 @@ const int bishopTable[64] = {
     -20,-10,-10,-10,-10,-10,-10,-20
 };
 
-// Rooks : Bonus for the 7th rank and central files
 const int rookTable[64] = {
      0,  0,  0,  0,  0,  0,  0,  0,
      5, 10, 10, 10, 10, 10, 10,  5,
@@ -57,8 +54,6 @@ const int rookTable[64] = {
      0,  0,  0,  5,  5,  0,  0,  0
 };
 
-// Material values (P, N, B, R, Q, K)
-// We assign a huge value to the King to never sacrifice it
 const int pieceValues[] = { 100, 320, 330, 500, 900, 20000 };
 
 // ==========================================
@@ -66,22 +61,13 @@ const int pieceValues[] = { 100, 320, 330, 500, 900, 20000 };
 // ==========================================
 int AI::evaluate(const Board& board) {
     int score = 0;
-
     for (int sq = 0; sq < 64; ++sq) {
         Color c;
         PieceType pt = board.getPieceTypeAt(sq, c);
-        
         if (pt == PieceType::None) continue;
-
-        // 1. Material
         int val = pieceValues[static_cast<int>(pt)];
-
-        // 2. Position (PST)
-        // For White, read the table normally.
-        // For Black, mirror the table vertically (index ^ 56).
         int tableScore = 0;
         int tableIdx = (c == Color::White) ? sq : (sq ^ 56);
-
         switch (pt) {
             case PieceType::Pawn:   tableScore = pawnTable[tableIdx]; break;
             case PieceType::Knight: tableScore = knightTable[tableIdx]; break;
@@ -89,7 +75,6 @@ int AI::evaluate(const Board& board) {
             case PieceType::Rook:   tableScore = rookTable[tableIdx]; break;
             default: break;
         }
-
         if (c == Color::White) score += (val + tableScore);
         else                   score -= (val + tableScore);
     }
@@ -97,56 +82,32 @@ int AI::evaluate(const Board& board) {
 }
 
 // ==========================================
-// 3. NEGAMAX ALGORITHM (ALPHA-BETA)
+// 3. NEGAMAX ALGORITHM
 // ==========================================
 int AI::negamax(const Board& board, int depth, int alpha, int beta, int colorMultiplier) {
-    // Base case: Depth reached
-    if (depth == 0) {
-        return colorMultiplier * evaluate(board);
-    }
+    if (depth == 0) return colorMultiplier * evaluate(board);
 
     Color turn = (colorMultiplier == 1) ? Color::White : Color::Black;
     std::vector<Move> moves = board.generateLegalMoves(turn);
 
-    // Checkmate / Stalemate check
     if (moves.empty()) {
-        if (board.isInCheck(turn)) {
-            // Checkmate: Return a very low value, adjusted by depth
-            // to prefer a mate in 1 move rather than in 5.
-            return -MATE_VALUE + depth; 
-        }
-        return 0; // Stalemate
+        if (board.isInCheck(turn)) return -MATE_VALUE + depth; 
+        return 0; 
     }
 
-    // Move sorting (optional but recommended for speed)
-    // Here, we put captures first to cut the tree faster
     std::sort(moves.begin(), moves.end(), [](const Move& a, const Move& b) {
         return a.isCapture > b.isCapture;
     });
 
     int maxScore = -INF;
-
     for (const auto& move : moves) {
-        // Copy the board and simulate the move
         Board nextBoard = board;
         nextBoard.movePiece(move.from, move.to, move.promotion);
-
-        // Recursive call (Note the minus sign and the inversion of alpha/beta)
         int score = -negamax(nextBoard, depth - 1, -beta, -alpha, -colorMultiplier);
-
-        if (score > maxScore) {
-            maxScore = score;
-        }
-
-        // Alpha-Beta Pruning
-        if (score > alpha) {
-            alpha = score;
-        }
-        if (alpha >= beta) {
-            break; // Beta cutoff: the opponent will not allow us to play this move
-        }
+        if (score > maxScore) maxScore = score;
+        if (score > alpha) alpha = score;
+        if (alpha >= beta) break; 
     }
-
     return maxScore;
 }
 
@@ -155,8 +116,6 @@ int AI::negamax(const Board& board, int depth, int alpha, int beta, int colorMul
 // ==========================================
 Move AI::getBestMove(const Board& board, int depth, Color turn) {
     std::vector<Move> moves = board.generateLegalMoves(turn);
-    
-    // Safety check
     if (moves.empty()) return Move(0, 0);
 
     // Sort to optimize
@@ -168,16 +127,17 @@ Move AI::getBestMove(const Board& board, int depth, Color turn) {
     int maxScore = -INF;
     int colorMultiplier = (turn == Color::White) ? 1 : -1;
 
-    // Root of the search: loop over the first-level moves
     for (const auto& move : moves) {
         Board nextBoard = board;
         nextBoard.movePiece(move.from, move.to, move.promotion);
 
-        // Launch Negamax at depth-1
+        // Negamax recursion
         int score = -negamax(nextBoard, depth - 1, -INF, INF, -colorMultiplier);
 
-        // Debug output (optional, to see what the AI thinks)
-        std::cout << "Move: " << move.from << "->" << move.to << " Score: " << score << "\n";
+        // --- CORRECTION ICI : ON COMMENTE LE PRINT ---
+        // std::cout << "Move: " << move.from << "->" << move.to << " Score: " << score << "\n";
+        // ---------------------------------------------
+
         if (score > maxScore) {
             maxScore = score;
             bestMove = move;
