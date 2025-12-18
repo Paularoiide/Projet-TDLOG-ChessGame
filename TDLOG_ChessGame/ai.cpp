@@ -3,10 +3,6 @@
 #include <vector>
 #include <iostream>
 
-// ... (Le début du fichier avec les Tables reste inchangé) ...
-// Copiez-collez tout le début du fichier jusqu'à la fonction negamax incluse.
-// Je remets ici juste la fin avec la correction dans getBestMove.
-
 // ==========================================
 // 1. PIECE-SQUARE TABLES (Position Tables)
 // ==========================================
@@ -118,7 +114,7 @@ Move AI::getBestMove(const Board& board, int depth, Color turn) {
     std::vector<Move> moves = board.generateLegalMoves(turn);
     if (moves.empty()) return Move(0, 0);
 
-    // Tri pour optimisation (Move Ordering)
+
     std::sort(moves.begin(), moves.end(), [](const Move& a, const Move& b) {
         return a.isCapture > b.isCapture;
     });
@@ -131,12 +127,8 @@ Move AI::getBestMove(const Board& board, int depth, Color turn) {
         Board nextBoard = board;
         nextBoard.movePiece(move.from, move.to, move.promotion);
 
-        // Appel récursif
         int score = -negamax(nextBoard, depth - 1, -INF, INF, -colorMultiplier);
 
-        // --- CORRECTION : ON COMMENTE L'AFFICHAGE ---
-        // std::cout << "Move: " << move.from << "->" << move.to << " Score: " << score << "\n";
-        // ---------------------------------------------
 
         if (score > maxScore) {
             maxScore = score;
