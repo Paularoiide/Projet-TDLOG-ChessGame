@@ -11,7 +11,7 @@ class Game {
 
 public:
     Game();
-    void startGame();
+    void startGame(Variant v = Variant::Classic);
     bool playMove(const Move& move);
     const Board& board() const { return board_; }
     Color currentTurn() const { return currentTurn_; }

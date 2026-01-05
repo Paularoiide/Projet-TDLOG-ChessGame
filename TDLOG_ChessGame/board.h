@@ -11,7 +11,7 @@ using Bitboard = uint64_t;
 class Board {
     // 2 colors, 6 piece types
     // bitboards[0][0] = White Pawns, bitboards[1][5] = Black King, etc.
-    Bitboard bitboards_[2][6];
+    Bitboard bitboards_[2][10];
 
     // Utility bitboards (updated after each move)
     Bitboard occupancies_[3]; // 0: White, 1: Black, 2: Both
@@ -22,7 +22,7 @@ class Board {
     int enPassantTarget_ = -1;
 
 public:
-    Board(); // Initializes the standard starting position
+    Board(Variant v = Variant::Classic); // Initializes the standard starting position
 
     // Fast accessors
     Bitboard getBitboard(Color c, PieceType pt) const {

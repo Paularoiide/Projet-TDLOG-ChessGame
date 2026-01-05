@@ -12,15 +12,17 @@ SQUARE_SIZE = BOARD_SIZE // 8
 PIECES = {
     "P": "♙", "R": "♖", "N": "♘", "B": "♗", "Q": "♕", "K": "♔",
     "p": "♟", "r": "♜", "n": "♞", "b": "♝", "q": "♛", "k": "♚",
-    "-": " " 
+    "A": "WA", "a": "BA", "E": "WE", "e": "BE", "H": "WH", "h": "BH",
+    "G": "WG", "g": "BG", "-": " " 
 }
 
 class Variante(enum.Enum):
     CLASSIC = 0
+    FAIRY = 1
 
 # --- MOTEUR ---
 class Engine():
-    def __init__(self, engine_path: str, nb_ai: int = 0):
+    def __init__(self, engine_path: str, variant: str, nb_ai: int = 0):
         if not os.path.exists(engine_path):
             raise FileNotFoundError(f"Moteur introuvable à : {engine_path}")
         
@@ -30,10 +32,11 @@ class Engine():
             os.chmod(engine_path, st.st_mode | stat.S_IEXEC)
         except Exception:
             pass
-
+        
+        cmd = [engine_path, variant]
         try:
             self.process = subprocess.Popen(
-                [engine_path], 
+                cmd,
                 stdin=subprocess.PIPE, 
                 stdout=subprocess.PIPE, 
                 stderr=subprocess.PIPE, 
@@ -148,10 +151,10 @@ class Board():
         return [row[:] for row in self.board]
 
 class DisplayGame():
-    def __init__(self, root, variante: Variante, engine_path: str, nb_ai: int = 0):
+    def __init__(self, root, variant_str: str, engine_path: str, nb_ai: int = 0):
         self.root = root
-        self.board = Board(variante)
-        self.engine = Engine(engine_path, nb_ai)
+        self.board = Board(Variante.FAIRY if variant_str == "fairy" else Variante.CLASSIC)
+        self.engine = Engine(engine_path, variant_str, nb_ai)
         self.nb_ai = nb_ai
         self.gamemode = "PvP" if nb_ai == 0 else "PvAI" if nb_ai == 1 else "AIvAI"
         
@@ -226,24 +229,62 @@ def find_executable(start_dir, exe_name):
                 return full_path
     return None
 
+# Fonction pour afficher la popup de choix
+def ask_variant(root):
+    choice = tk.StringVar(value="classic") # Valeur par défaut
+    
+    # Création de la fenêtre secondaire
+    dialog = tk.Toplevel(root)
+    dialog.title("Configuration")
+    dialog.geometry("300x150")
+    
+    tk.Label(dialog, text="Choisissez le mode de jeu :", font=("Arial", 12)).pack(pady=10)
+    
+    # Bouton Classique
+    def set_classic():
+        choice.set("classic")
+        dialog.destroy()
+        
+    tk.Button(dialog, text="Classique", command=set_classic, width=20).pack(pady=5)
+    
+    # Bouton Féerique
+    def set_fairy():
+        choice.set("fairy")
+        dialog.destroy()
+        
+    tk.Button(dialog, text="Féerique (Fairy)", command=set_fairy, width=20).pack(pady=5)
+    
+    # Important : on attend que la fenêtre soit fermée avant de continuer
+    root.wait_window(dialog)
+    return choice.get()
+
+# --- BLOC PRINCIPAL ---
 if __name__== "__main__":
     root = tk.Tk()
+    root.withdraw() # On cache la fenêtre principale pour l'instant
     
     base_dir = os.path.dirname(os.path.abspath(__file__))
     target_name = "TDLOG_ChessGame.exe" if os.name == 'nt' else "TDLOG_ChessGame"
-    
     final_path = find_executable(base_dir, target_name)
 
     if final_path is None:
-        print("ERREUR CRITIQUE : Exécutable introuvable.")
+        print("ERREUR : Exécutable introuvable.")
         sys.exit(1)
 
-    print(f"Moteur trouvé : {final_path}")
+    # 1. On demande à l'utilisateur quel mode il veut
+    selected_mode = ask_variant(root)
+    print(f"Mode choisi : {selected_mode}")
+
+    # 2. On réaffiche la fenêtre principale
+    root.deiconify()
     
-    game = DisplayGame(root, Variante.CLASSIC, final_path, nb_ai=1)
+    # 3. On lance le jeu
+    # IMPORTANT : nb_ai=0 pour le mode Joueur vs Joueur (PvP)
+    game = DisplayGame(root, selected_mode, final_path, nb_ai=1)
     
     def on_closing():
         game.engine.close()
         game.root.destroy()
     root.protocol("WM_DELETE_WINDOW", on_closing)
+    
     root.mainloop()

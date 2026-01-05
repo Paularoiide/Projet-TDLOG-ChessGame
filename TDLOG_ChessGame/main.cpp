@@ -26,6 +26,10 @@ void print_board_raw(const Board& b) {
                 case PieceType::Rook:   ch = 'R'; break;
                 case PieceType::Queen:  ch = 'Q'; break;
                 case PieceType::King:   ch = 'K'; break;
+                case PieceType::Princess:   ch = 'A'; break;
+                case PieceType::Empress:   ch = 'E'; break;
+                case PieceType::Nightrider:   ch = 'H'; break;
+                case PieceType::Grasshopper:   ch = 'G'; break;
                 default: break;
                 }
                 if (c == Color::Black) ch = (char)tolower(ch);
@@ -62,9 +66,18 @@ Move parse_move_string(std::string line) {
     return Move(from, to, promo);
 }
 
-int main() {
+int main(int argc, char* argv[]) {
+    Variant selectedVariant = Variant::Classic;
+
+    if (argc > 1) {
+        std::string arg = argv[1];
+        // On vérifie si l'argument est "fairy"
+        if (arg == "fairy") {
+            selectedVariant = Variant::FairyChess;
+        }
+    }
     Game game;
-    game.startGame();
+    game.startGame(selectedVariant);
 
     // 1. Envoi état initial
     print_board_raw(game.board());
