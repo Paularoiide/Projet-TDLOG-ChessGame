@@ -2,7 +2,7 @@
 #include <algorithm>
 #include <vector>
 #include <iostream>
-
+#include <omp.h>
 // ==========================================
 // 1. PIECE-SQUARE TABLES (Position Tables)
 // ==========================================
@@ -114,27 +114,33 @@ Move AI::getBestMove(const Board& board, int depth, Color turn) {
     std::vector<Move> moves = board.generateLegalMoves(turn);
     if (moves.empty()) return Move(0, 0);
 
-
+    // Move ordering: prioritize captures
     std::sort(moves.begin(), moves.end(), [](const Move& a, const Move& b) {
         return a.isCapture > b.isCapture;
     });
-
+    
     Move bestMove = moves[0];
     int maxScore = -INF;
     int colorMultiplier = (turn == Color::White) ? 1 : -1;
 
-    for (const auto& move : moves) {
-        Board nextBoard = board;
+    #pragma omp parallel for schedule(dynamic)
+    for (int i = 0; i < moves.size(); ++i) {
+        Move move = moves[i]; 
+        // Local board copy for each thread
+        Board nextBoard = board; 
         nextBoard.movePiece(move.from, move.to, move.promotion);
 
-        int score = -negamax(nextBoard, depth - 1, -INF, INF, -colorMultiplier);
 
+        int score = -negamax(nextBoard, this->searchDepth - 1, -INF, INF, -colorMultiplier);
 
-        if (score > maxScore) {
-            maxScore = score;
-            bestMove = move;
+        // Critical section to update best move
+        #pragma omp critical
+        {
+            if (score > maxScore) {
+                maxScore = score;
+                bestMove = move;
+            }
         }
     }
-    
     return bestMove;
 }

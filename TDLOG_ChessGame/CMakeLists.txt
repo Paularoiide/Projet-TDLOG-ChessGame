@@ -23,3 +23,7 @@ install(TARGETS TDLOG_ChessGame
     LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
 )
+find_package(OpenMP)
+if(OpenMP_CXX_FOUND)
+    target_link_libraries(TDLOG_ChessGame PUBLIC OpenMP::OpenMP_CXX)
+endif()
