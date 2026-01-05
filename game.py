@@ -9,11 +9,22 @@ import stat
 COLORS = ["#F0D9B5", "#B58863", "#BBCB2B"]
 BOARD_SIZE = 600
 SQUARE_SIZE = BOARD_SIZE // 8
-PIECES = {
-    "P": "♙", "R": "♖", "N": "♘", "B": "♗", "Q": "♕", "K": "♔",
-    "p": "♟", "r": "♜", "n": "♞", "b": "♝", "q": "♛", "k": "♚",
-    "-": " " 
+
+PIECE_IMAGES = {
+    "P": "wp.png",
+    "R": "wr.png",
+    "N": "wn.png",
+    "B": "wb.png",
+    "Q": "wq.png",
+    "K": "wk.png",
+    "p": "bp.png",
+    "r": "br.png",
+    "n": "bn.png",
+    "b": "bb.png",
+    "q": "bq.png",
+    "k": "bk.png",
 }
+
 
 class Variante(enum.Enum):
     CLASSIC = 0
@@ -148,6 +159,7 @@ class Board():
         return [row[:] for row in self.board]
 
 class DisplayGame():
+
     def __init__(self, root, variante: Variante, engine_path: str, nb_ai: int = 0):
         self.root = root
         self.board = Board(variante)
@@ -159,9 +171,24 @@ class DisplayGame():
         self.canvas = tk.Canvas(root, width=BOARD_SIZE, height=BOARD_SIZE)
         self.canvas.pack()
         self.move_handler = Move(self.canvas, self.submit_move)
-        
+
+        # Display the images for pieces
+        self.piece_images = {}
+        asset_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets")
+        for piece, filename in PIECE_IMAGES.items():
+            path = os.path.join(asset_dir, filename)
+            if os.path.exists(path):
+
+                img = tk.PhotoImage(file=path)
+                scale = img.width() // SQUARE_SIZE
+                if scale > 1:
+                    img = img.subsample(scale, scale)
+
+                self.piece_images[piece] = img
+
         # Lecture état initial
         self.act(self.engine.read_board())
+
 
     def draw_board(self):
         self.canvas.delete("all")
@@ -176,9 +203,8 @@ class DisplayGame():
                 pos = f"{chr(col + ord('a'))}{8 - row}"
                 piece = self.board[pos]
                 
-                if piece and piece in PIECES:
-                    self.canvas.create_text(x0 + SQUARE_SIZE//2, y0 + SQUARE_SIZE//2, 
-                                          text=PIECES[piece], font=("Arial", 32), fill="black")
+                if piece in self.piece_images:
+                    self.canvas.create_image(x0 + SQUARE_SIZE//2, y0 + SQUARE_SIZE//2, anchor=tk.CENTER, image=self.piece_images[piece])
 
     def submit_move(self, pos1, pos2):
         # Logique promotion
