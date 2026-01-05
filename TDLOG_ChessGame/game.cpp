@@ -20,8 +20,6 @@ bool Game::playMove(const Move& moveReq) {
     // 2. Validate the move
     bool found = false;
     for (const auto& m : legalMoves) {
-        // IMPORTANT 1 : On doit vérifier que la promotion correspond aussi !
-        // (Sinon le jeu ne sait pas si vous voulez une Dame ou un Cavalier)
         if (m.from == moveReq.from && m.to == moveReq.to && m.promotion == moveReq.promotion) {
             found = true;
             break;
@@ -31,7 +29,6 @@ bool Game::playMove(const Move& moveReq) {
     if (!found) return false;
 
     // 3. Play the move
-    // IMPORTANT 2 : Il faut PASSER l'argument promotion à movePiece !
     board_.movePiece(moveReq.from, moveReq.to, moveReq.promotion);
     
     currentTurn_ = opposite(currentTurn_);

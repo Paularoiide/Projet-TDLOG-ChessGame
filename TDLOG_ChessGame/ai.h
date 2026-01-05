@@ -20,4 +20,7 @@ private:
 
     // Static evaluation function (Material + Position)
     static int evaluate(const Board& board);
+public:
+    // destructor
+    ~AI() override = default; 
 };
