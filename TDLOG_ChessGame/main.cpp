@@ -38,6 +38,8 @@ void print_board_raw(const Board& b) {
     std::cout << std::flush;
 }
 
+
+
 Move parse_move_string(std::string line) {
     std::stringstream ss(line);
     std::string a, b, promoWord;
@@ -62,37 +64,108 @@ Move parse_move_string(std::string line) {
     return Move(from, to, promo);
 }
 
-int main() {
-    Game game;
-    game.startGame();
 
-    print_board_raw(game.board());
+
+
+int main() {
+    Game g;
+    g.startGame();
+
+    print_board_raw(g.board());
 
     std::string line;
-    while (std::getline(std::cin, line)) {
-        if (line == "quit" || line == "q") break;
+    Player* player1;
+    Player* player2;
+    Player* players[2] = {player1, player2};
+
+    //initialization
+    while (std::getline(std::cin, line)){
+        if (line == "quit" || line == "q"){
+            std::cout << "END" << std::endl;
+            return 0;
+        } 
         if (line.empty()) continue;
+        if(line == "PvP"){
+            *player1 = HumanPlayer();
+            *player2 = HumanPlayer();
+        }
+        else{
+            if(line == "PvAI"){
+                *player1 = HumanPlayer();
+                *player2 = AIPlayer(5);
+            }
+            if(line == "AIvAI"){
+                *player1 = AIPlayer(5);
+                *player2 = AIPlayer(5);
+            }
+        }
+        break;
+    }
 
-        // --- Human Turn ---
-        Move humanMove = parse_move_string(line);
-        if (!game.playMove(humanMove)) {
-            print_board_raw(game.board());
-            continue; 
+    int player = 0; 
+    bool break_iteration = true; //mis a false si move illegal
+    bool command_read = false; //indique si la commande a deja ete exploitee
+
+
+    while ((dynamic_cast<AIPlayer*>(players[player]))||(std::getline(std::cin, line))) {
+        Move* move;
+
+        if (dynamic_cast<AIPlayer*>(players[player])){
+            *move = g.findBestMove(players[player]->depth);
+        }
+        
+        else{
+
+            if (line.length() >= 4 && line.substr(0, 4) == "quit") {
+                std::cout << "END" << std::endl;
+                return 0;
+            } 
+            if (line.empty()) continue;
+
+            if (line.length() >= 4 && line.substr(0, 4) == "move") {
+                //joueur humain
+
+                std::stringstream ss(line.substr(5));
+                std::string a, b;
+                ss >> a >> b;
+
+                auto parseSquare = [](const std::string& s) -> int {
+                    if (s.size() < 2) return -1;
+                    return (s[1] - '1') * 8 + (s[0] - 'a');
+                };
+
+                int from = parseSquare(a);
+                int to   = parseSquare(b);
+
+                *move = Move(from, to);
+            }
+                
+            std::string answer = g.playMove(*move);
+            GameState state = g.gameState();
+            if (answer=="OK" && state==GameState::Prom){
+                std::cout << "PROM" << std::endl;
+                print_board_raw(g.board());
+                do_prom(); //TODO
+            }
+            std::cout << answer << std::endl;
+
+            print_board_raw(g.board());
+
+            
+
+            if (state == GameState::Prom){
+                do_prom(); //TODO
+            }
+
+            if (state == GameState::Checkmate || state == GameState::Stalemate) {
+                continue; // End of the game
+            }
+                
+            }
+
         }
 
-        print_board_raw(game.board());
 
-
-        GameState state = game.gameState();
-        if (state == GameState::Checkmate || state == GameState::Stalemate) {
-            continue; // End of the game
-        }
-
-        // --- AI Turn ---
-        Move aiMove = AI::getBestMove(game.board(), 5, game.currentTurn());
-        game.playMove(aiMove);
-
-        print_board_raw(game.board());
     }
 
     return 0;

@@ -65,16 +65,39 @@ class Engine():
             self.process.terminate()
 
     def read_board(self):
-        """Lit 8 lignes valides depuis le C++."""
-        lines = []
-        # On lit jusqu'à avoir 8 lignes, ou que le processus meurt
-        while len(lines) < 8:
-            line = self.process.stdout.readline()
-            if not line: break # Fin du flux (EOF)
-            stripped = line.strip()
-            if not stripped: continue # Ignore les lignes vides
-            lines.append(stripped)
-        return lines
+        """Lit le prefix et les 8 lignes valides depuis le C++."""
+        
+        prefix = self.process.stdout.readline()
+        if not prefix: 
+            print("Erreur : Le moteur C++ s'est arrêté.")
+            return None, []
+        prefix = prefix.strip()
+        if not prefix:
+            return None, []
+
+
+        if prefix=="PROM":
+            
+            return "PROM", []
+        
+        elif prefix=="ERR":
+            return "ERR", []
+        
+        elif prefix=="OK":
+            lines = []
+            while len(lines) < 8:
+                line = self.process.stdout.readline()
+                if not line: break # Fin du flux (EOF)
+                stripped = line.strip()
+                if not stripped: continue # Ignore les lignes vides
+                lines.append(stripped)
+            return "OK", lines
+        
+        elif prefix=="END":
+            return "END", []
+        
+        else :
+            print("Unrecognized prefix : " + prefix)
 
 # --- LOGIQUE UI ---
 class Move():
