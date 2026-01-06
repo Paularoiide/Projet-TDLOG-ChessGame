@@ -66,16 +66,35 @@ Move parse_move_string(std::string line) {
     return Move(from, to, promo);
 }
 
+std::string indexToSquare(int sq) {
+    std::string s = "";
+    s += (char)('a' + (sq % 8));
+    s += (char)('1' + (sq / 8));
+    return s;
+}
+
+
+
 int main(int argc, char* argv[]) {
     Variant selectedVariant = Variant::Classic;
+    bool isPvP = false;
 
+    // 1. Lecture de la VARIANTE (argument 1)
     if (argc > 1) {
         std::string arg = argv[1];
-        // On vérifie si l'argument est "fairy"
         if (arg == "fairy") {
             selectedVariant = Variant::FairyChess;
         }
     }
+
+    // 2. Lecture du MODE DE JEU (argument 2)
+    if (argc > 2) {
+        std::string mode = argv[2];
+        if (mode == "pvp") {
+            isPvP = true;
+        }
+    }
+
     Game game;
     game.startGame(selectedVariant);
 
@@ -86,26 +105,52 @@ int main(int argc, char* argv[]) {
         if (line == "quit" || line == "q") break;
         if (line.empty()) continue;
 
-        // --- Human Turn ---
+        // --- GESTION DE L'AIDE (POSSIBLE) ---
+        if (line.rfind("possible", 0) == 0) {
+            std::stringstream ss(line);
+            std::string cmd, sqStr;
+            ss >> cmd >> sqStr;
+            int reqSq = -1;
+            if (sqStr.size() >= 2) {
+                int f = sqStr[0] - 'a';
+                int r = sqStr[1] - '1';
+                if (f >= 0 && f < 8 && r >= 0 && r < 8) reqSq = r * 8 + f;
+            }
+            if (reqSq != -1) {
+                std::vector<Move> moves = game.board().generateLegalMoves(game.currentTurn());
+                bool first = true;
+                for (const auto& m : moves) {
+                    if (m.from == reqSq) {
+                        if (!first) std::cout << " ";
+                        std::cout << indexToSquare(m.to);
+                        first = false;
+                    }
+                }
+            }
+            std::cout << std::endl;
+            continue;
+        }
+
+        // --- TOUR HUMAIN ---
         Move humanMove = parse_move_string(line);
         if (!game.playMove(humanMove)) {
             print_board_raw(game.board());
-            continue; 
+            continue;
         }
 
         print_board_raw(game.board());
-
 
         GameState state = game.gameState();
         if (state == GameState::Checkmate || state == GameState::Stalemate) {
-            continue; // End of the game
+            continue;
         }
 
-        // --- AI Turn ---
-        Move aiMove = AI::getBestMove(game.board(), 5, game.currentTurn());
-        game.playMove(aiMove);
-
-        print_board_raw(game.board());
+        // --- TOUR IA ---
+        if (!isPvP) {
+            Move aiMove = AI::getBestMove(game.board(), 5, game.currentTurn());
+            game.playMove(aiMove);
+            print_board_raw(game.board());
+        }
     }
 
     return 0;

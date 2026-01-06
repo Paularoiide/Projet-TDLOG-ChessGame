@@ -44,8 +44,6 @@ Board::Board(Variant v) {
         setBit(bitboards_[0][EMPRESS], 5);    // f1 (remplace Fou)
         setBit(bitboards_[0][NIGHTRIDER], 6); // g1 (remplace Cavalier)
 
-        setBit(bitboards_[0][GRASSHOPPER], 16); // a3
-        setBit(bitboards_[0][GRASSHOPPER], 23); // h3
 
         // BLACK
         setBit(bitboards_[1][NIGHTRIDER], 57); // b8
@@ -53,8 +51,6 @@ Board::Board(Variant v) {
         setBit(bitboards_[1][EMPRESS], 61);    // f8
         setBit(bitboards_[1][NIGHTRIDER], 62); // g8
 
-        setBit(bitboards_[1][GRASSHOPPER], 40); // a6
-        setBit(bitboards_[1][GRASSHOPPER], 47); // h6
 
     } else {
         // --- MODE CLASSIQUE ---
