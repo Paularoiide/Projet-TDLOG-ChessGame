@@ -42,7 +42,8 @@ public:
 
     // Move generation (simplified example)
     std::vector<Move> generateLegalMoves(Color turn) const;
-
+    // Method to generate only capture moves
+    std::vector<Move> generateCaptures(Color turn) const;
     // Updates global occupancies
     void updateOccupancies();
 
