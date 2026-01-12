@@ -191,52 +191,46 @@ Move AI::getBestMove(const Board& board, Color turn) {
 // ==========================================
 // This function extends the search at leaf nodes to include only "noisy" moves like captures.
 int AI::quiescence(const Board& board, int alpha, int beta, int colorMultiplier) {
-    // 1. Static Evaluation
-    // If we do nothing, what is the score?
+    // 1. Stand Pat
     int stand_pat = colorMultiplier * (*evaluate)(board);
 
-    // 2. Beta Cutoff (Hard pruning)
-    // If the current position is already too good, the opponent won't let us get there.
-    if (stand_pat >= beta) {
-        return beta;
+    if (stand_pat >= beta) return beta;
+
+    // --- OPTIMIZATION : DELTA PRUNING ---
+    // If the stand pat is so low that even adding the maximum possible gain from captures
+    // we don't even search captures.
+    // Safety margin = 975 (Queen + a bit more)
+    const int DELTA = 975;
+    if (stand_pat < alpha - DELTA) {
+        return alpha;
     }
 
-    // 3. Alpha Update
-    // If doing nothing is better than what we've found elsewhere, raise alpha.
-    if (stand_pat > alpha) {
-        alpha = stand_pat;
-    }
+    if (stand_pat > alpha) alpha = stand_pat;
 
-    // 4. Move Generation (ONLY CAPTURES)
-    // Note : Ideally, there should be a generateCaptures() method in Board
-    // for faster performance, but we'll filter here for now.
+    // 2. Optimized generation (captures only)
     Color turn = (colorMultiplier == 1) ? Color::White : Color::Black;
-    std::vector<Move> moves = board.generateLegalMoves(turn); // Generating all moves (optimizable later)
-    // MVV-LVA Sorting
-    auto moveSorter = [](const Move& a, const Move& b) {
-        // We want to look at captures first
-        if (a.isCapture != b.isCapture) return a.isCapture;
-        // We ignore non-captures below, but sorting helps
-        return false; 
-    };
-    std::sort(moves.begin(), moves.end(), moveSorter);
+    
+    // --- CALL THE NEW FUNCTION ---
+    std::vector<Move> moves = board.generateCaptures(turn); 
+
+    // 3. MVV-LVA sorting (Always useful)
+    std::sort(moves.begin(), moves.end(), [](const Move& a, const Move& b) {
+        //  Here, we know that every move is a capture
+        // so we sort by "probable value" (approximation)
+        // Promotion first
+        if (a.promotion != PieceType::None && b.promotion == PieceType::None) return true;
+        if (a.promotion == PieceType::None && b.promotion != PieceType::None) return false;
+        return false;
+    });
 
     for (const auto& move : moves) {
-        // IMPORTANT: Only look at captures in Quiescence Search
-        if (!move.isCapture) continue;
-
         Board nextBoard = board;
         nextBoard.movePiece(move.from, move.to, move.promotion);
 
-        // Recursive call (stay in quiescence)
         int score = -quiescence(nextBoard, -beta, -alpha, -colorMultiplier);
 
-        if (score >= beta) {
-            return beta;
-        }
-        if (score > alpha) {
-            alpha = score;
-        }
+        if (score >= beta) return beta;
+        if (score > alpha) alpha = score;
     }
     return alpha;
 }
