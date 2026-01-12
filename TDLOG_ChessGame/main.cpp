@@ -94,11 +94,11 @@ int main() {
         else{
             if(line == "PvAI"){
                 *player1 = HumanPlayer();
-                *player2 = AIPlayer(5);
+                *player2 = AI(new MaterialAndPositionEvaluation(), 6);
             }
             if(line == "AIvAI"){
-                *player1 = AIPlayer(5);
-                *player2 = AIPlayer(5);
+                *player1 = AI(new MaterialAndPositionEvaluation(), 6);
+                *player2 = AI(new MaterialAndPositionEvaluation(), 6);
             }
         }
         break;
@@ -109,11 +109,11 @@ int main() {
     bool command_read = false; //indique si la commande a deja ete exploitee
 
 
-    while ((dynamic_cast<AIPlayer*>(players[player]))||(std::getline(std::cin, line))) {
+    while ((dynamic_cast<AI*>(players[player]))||(std::getline(std::cin, line))) {
         Move* move;
 
-        if (dynamic_cast<AIPlayer*>(players[player])){
-            *move = g.findBestMove(players[player]->depth);
+        if (dynamic_cast<AI*>(players[player])){
+            *move = players[player]->getBestMove(g.board(), g.currentTurn());
         }
         
         else{
