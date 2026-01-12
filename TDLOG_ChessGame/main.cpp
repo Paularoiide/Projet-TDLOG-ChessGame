@@ -27,9 +27,9 @@ void print_board_raw(const Board& b) {
                 case PieceType::Queen:  ch = 'Q'; break;
                 case PieceType::King:   ch = 'K'; break;
                 case PieceType::Princess:   ch = 'A'; break;
-                case PieceType::Empress:   ch = 'E'; break;
-                case PieceType::Nightrider:   ch = 'H'; break;
-                case PieceType::Grasshopper:   ch = 'G'; break;
+                case PieceType::Empress:    ch = 'E'; break;
+                case PieceType::Nightrider: ch = 'H'; break;
+                case PieceType::Grasshopper: ch = 'G'; break;
                 default: break;
                 }
                 if (c == Color::Black) ch = (char)tolower(ch);
@@ -73,13 +73,10 @@ std::string indexToSquare(int sq) {
     return s;
 }
 
-
-
 int main(int argc, char* argv[]) {
     Variant selectedVariant = Variant::Classic;
     bool isPvP = false;
 
-    // 1. Lecture de la VARIANTE (argument 1)
     if (argc > 1) {
         std::string arg = argv[1];
         if (arg == "fairy") {
@@ -87,7 +84,6 @@ int main(int argc, char* argv[]) {
         }
     }
 
-    // 2. Lecture du MODE DE JEU (argument 2)
     if (argc > 2) {
         std::string mode = argv[2];
         if (mode == "pvp") {
@@ -98,6 +94,9 @@ int main(int argc, char* argv[]) {
     Game game;
     game.startGame(selectedVariant);
 
+    // choose depth here
+    AI bot(new MaterialAndPositionEvaluation(), 6);
+
     print_board_raw(game.board());
 
     std::string line;
@@ -105,7 +104,6 @@ int main(int argc, char* argv[]) {
         if (line == "quit" || line == "q") break;
         if (line.empty()) continue;
 
-        // --- GESTION DE L'AIDE (POSSIBLE) ---
         if (line.rfind("possible", 0) == 0) {
             std::stringstream ss(line);
             std::string cmd, sqStr;
@@ -131,23 +129,23 @@ int main(int argc, char* argv[]) {
             continue;
         }
 
-        // --- TOUR HUMAIN ---
+        // --- Human Turn ---
         Move humanMove = parse_move_string(line);
         if (!game.playMove(humanMove)) {
             print_board_raw(game.board());
-            continue;
+            continue; 
         }
 
         print_board_raw(game.board());
 
         GameState state = game.gameState();
         if (state == GameState::Checkmate || state == GameState::Stalemate) {
-            continue;
+            continue; // End of the game
         }
 
-        // --- TOUR IA ---
+        // --- AI Turn ---
         if (!isPvP) {
-            Move aiMove = AI::getBestMove(game.board(), 5, game.currentTurn());
+            Move aiMove = bot.getBestMove(game.board(), game.currentTurn());
             game.playMove(aiMove);
             print_board_raw(game.board());
         }

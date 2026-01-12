@@ -1,12 +1,13 @@
 #include "ai.h"
+#include "game.h" // Nécessaire pour AI::getMove(Game& g)
 #include <algorithm>
 #include <vector>
 #include <iostream>
+#include <future>
 
 // ==========================================
-// 1. PIECE-SQUARE TABLES (Position Tables)
+// 1. PIECE-SQUARE TABLES
 // ==========================================
-// (On garde les tables classiques pour l'instant et on les réutilisera pour les pièces féeriques)
 
 const int pawnTable[64] = {
     0,  0,  0,  0,  0,  0,  0,  0,
@@ -52,54 +53,74 @@ const int rookTable[64] = {
     0,  0,  0,  5,  5,  0,  0,  0
 };
 
-// --- MODIFICATION 1 : AJOUT DES VALEURS FÉERIQUES ---
-// Indices : 0:Pawn, 1:Knight, 2:Bishop, 3:Rook, 4:Queen, 5:King,
-//           6:Princess, 7:Empress, 8:Nightrider, 9:Grasshopper
 const int pieceValues[] = {
     100, 320, 330, 500, 900, 20000,
-    650, // Princess (Bishop+Knight)
-    850, // Empress (Rook+Knight)
-    400, // Nightrider (Strong Knight)
-    300  // Grasshopper (Roughly Knight)
+    650,
+    850,
+    400,
+    300
 };
 
 // ==========================================
-// 2. EVALUATION FUNCTION
+// 2. EVALUATION FUNCTION IMPLEMENTATION
 // ==========================================
-int AI::evaluate(const Board& board) {
+static inline int getLSB(uint64_t bb) {
+#ifdef _MSC_VER
+    unsigned long index;
+    _BitScanForward64(&index, bb);
+    return index;
+#else
+    return __builtin_ctzll(bb);
+#endif
+}
+
+int MaterialAndPositionEvaluation::operator()(const Board& board) const {
     int score = 0;
-    for (int sq = 0; sq < 64; ++sq) {
-        Color c;
-        PieceType pt = board.getPieceTypeAt(sq, c);
-        if (pt == PieceType::None) continue;
 
-        // Récupération de la valeur matérielle
-        int val = pieceValues[static_cast<int>(pt)];
+    for (int p = 0; p < 10; ++p) {
+        PieceType pt = static_cast<PieceType>(p);
+        int val = pieceValues[p];
 
-        // Calcul du bonus de position
-        int tableScore = 0;
-        int tableIdx = (c == Color::White) ? sq : (sq ^ 56); // Miroir vertical pour les noirs
-
-        switch (pt) {
-        case PieceType::Pawn:        tableScore = pawnTable[tableIdx]; break;
-        case PieceType::Knight:      tableScore = knightTable[tableIdx]; break;
-        case PieceType::Bishop:      tableScore = bishopTable[tableIdx]; break;
-        case PieceType::Rook:        tableScore = rookTable[tableIdx]; break;
-
-        // --- MODIFICATION 2 : LOGIQUE POUR PIÈCES FÉERIQUES ---
-        // On approxime avec les tables existantes
-        case PieceType::Princess:    tableScore = bishopTable[tableIdx]; break; // Aime les diagonales
-        case PieceType::Empress:     tableScore = rookTable[tableIdx]; break;   // Aime les colonnes ouvertes
-        case PieceType::Nightrider:  tableScore = knightTable[tableIdx]; break; // Aime le centre
-        case PieceType::Grasshopper: tableScore = knightTable[tableIdx]; break; // Aime le centre
-
-        // Queen et King utilisent généralement des tables spécifiques,
-            // ici on laisse 0 ou on pourrait ajouter une table simple.
-        default: break;
+        // --- BLANCS ---
+        Bitboard bbWhite = board.getBitboard(Color::White, pt);
+        while (bbWhite) {
+            int sq = getLSB(bbWhite);
+            int posVal = 0;
+            switch(pt) {
+            case PieceType::Pawn: posVal = pawnTable[sq]; break;
+            case PieceType::Knight: posVal = knightTable[sq]; break;
+            case PieceType::Bishop: posVal = bishopTable[sq]; break;
+            case PieceType::Rook: posVal = rookTable[sq]; break;
+            case PieceType::Princess: posVal = bishopTable[sq]; break;
+            case PieceType::Empress: posVal = rookTable[sq]; break;
+            case PieceType::Nightrider: posVal = knightTable[sq]; break;
+            case PieceType::Grasshopper: posVal = knightTable[sq]; break;
+            default: break;
+            }
+            score += (val + posVal);
+            bbWhite &= (bbWhite - 1);
         }
 
-        if (c == Color::White) score += (val + tableScore);
-        else                   score -= (val + tableScore);
+        // --- NOIRS ---
+        Bitboard bbBlack = board.getBitboard(Color::Black, pt);
+        while (bbBlack) {
+            int sq = getLSB(bbBlack);
+            int tableIdx = sq ^ 56;
+            int posVal = 0;
+            switch(pt) {
+            case PieceType::Pawn: posVal = pawnTable[tableIdx]; break;
+            case PieceType::Knight: posVal = knightTable[tableIdx]; break;
+            case PieceType::Bishop: posVal = bishopTable[tableIdx]; break;
+            case PieceType::Rook: posVal = rookTable[tableIdx]; break;
+            case PieceType::Princess: posVal = bishopTable[tableIdx]; break;
+            case PieceType::Empress: posVal = rookTable[tableIdx]; break;
+            case PieceType::Nightrider: posVal = knightTable[tableIdx]; break;
+            case PieceType::Grasshopper: posVal = knightTable[tableIdx]; break;
+            default: break;
+            }
+            score -= (val + posVal);
+            bbBlack &= (bbBlack - 1);
+        }
     }
     return score;
 }
@@ -108,7 +129,10 @@ int AI::evaluate(const Board& board) {
 // 3. NEGAMAX ALGORITHM
 // ==========================================
 int AI::negamax(const Board& board, int depth, int alpha, int beta, int colorMultiplier) {
-    if (depth == 0) return colorMultiplier * evaluate(board);
+    if (depth == 0) {
+        // On utilise l'opérateur () du pointeur d'évaluation
+        return colorMultiplier * (*evaluate)(board);
+    }
 
     Color turn = (colorMultiplier == 1) ? Color::White : Color::Black;
     std::vector<Move> moves = board.generateLegalMoves(turn);
@@ -118,17 +142,18 @@ int AI::negamax(const Board& board, int depth, int alpha, int beta, int colorMul
         return 0; // Pat
     }
 
-    // Tri simple pour optimiser l'élagage Alpha-Beta (les captures d'abord)
     std::sort(moves.begin(), moves.end(), [](const Move& a, const Move& b) {
-        return a.isCapture > b.isCapture;
+        if (a.isCapture != b.isCapture) return a.isCapture;
+        if (a.promotion != PieceType::None) return true;
+        return false;
     });
 
     int maxScore = -INF;
     for (const auto& move : moves) {
         Board nextBoard = board;
         nextBoard.movePiece(move.from, move.to, move.promotion);
-        int score = -negamax(nextBoard, depth - 1, -beta, -alpha, -colorMultiplier);
 
+        int score = -negamax(nextBoard, depth - 1, -beta, -alpha, -colorMultiplier);
         if (score > maxScore) maxScore = score;
         if (score > alpha) alpha = score;
         if (alpha >= beta) break;
@@ -137,36 +162,51 @@ int AI::negamax(const Board& board, int depth, int alpha, int beta, int colorMul
 }
 
 // ==========================================
-// 4. ROOT OF THE SEARCH
+// 4. SEARCH METHODS
 // ==========================================
-Move AI::getBestMove(const Board& board, int depth, Color turn) {
+
+// Implémentation requise par l'interface Player
+Move AI::getMove(Game& g) {
+    return getBestMove(g.board(), g.currentTurn());
+}
+
+Move AI::getBestMove(const Board& board, Color turn) {
     std::vector<Move> moves = board.generateLegalMoves(turn);
     if (moves.empty()) return Move(0, 0);
 
-    // Tri des coups à la racine également
     std::sort(moves.begin(), moves.end(), [](const Move& a, const Move& b) {
         return a.isCapture > b.isCapture;
     });
 
-    Move bestMove = moves[0];
-    int maxScore = -INF;
+    struct MoveResult {
+        int score;
+        Move move;
+    };
+
+    std::vector<std::future<MoveResult>> futures;
     int colorMultiplier = (turn == Color::White) ? 1 : -1;
 
+    // On utilise la profondeur stockée dans l'objet AI
+    int currentDepth = this->searchDepth;
+
     for (const auto& move : moves) {
-        Board nextBoard = board;
-        nextBoard.movePiece(move.from, move.to, move.promotion);
+        futures.push_back(std::async(std::launch::async, [=]() -> MoveResult {
+            Board threadBoard = board;
+            threadBoard.movePiece(move.from, move.to, move.promotion);
 
-        int score = -negamax(nextBoard, depth - 1, -INF, INF, -colorMultiplier);
+            int score = -negamax(threadBoard, currentDepth - 1, -INF, INF, -colorMultiplier);
+            return {score, move};
+        }));
+    }
 
-        // --- CORRECTION : SUPPRESSION DU DEBUG ---
-        // Les lignes suivantes doivent être commentées ou supprimées
-        // pour ne pas perturber l'interface Python.
-        // std::cout << "Move: " << move.from << "->" << move.to << " Score: " << score << "\n";
-        // -----------------------------------------
+    Move bestMove = moves[0];
+    int maxScore = -INF;
 
-        if (score > maxScore) {
-            maxScore = score;
-            bestMove = move;
+    for (auto& f : futures) {
+        MoveResult res = f.get();
+        if (res.score > maxScore) {
+            maxScore = res.score;
+            bestMove = res.move;
         }
     }
 
