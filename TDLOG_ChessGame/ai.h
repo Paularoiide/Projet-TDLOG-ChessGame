@@ -3,6 +3,7 @@
 #include "move.h"
 #include "piece.h"
 #include "player.h"
+#include <mutex> // For thread safety in TT
 // Type of entries in the TT (Transition Table)
 enum class TTFlag { EXACT, ALPHA, BETA };
 
@@ -12,6 +13,10 @@ struct TTEntry {
     int depth;      // The search depth that produced this score
     Move bestMove;  // The best move found
     TTFlag flag;    // Type of score (Lower bound, upper bound, or exact)
+
+    TTEntry() : key(0), score(0), depth(0), bestMove(-1, -1), flag(TTFlag::EXACT) {} // Default constructor
+    TTEntry(uint64_t k, int s, int d, Move m, TTFlag f)
+        : key(k), score(s), depth(d), bestMove(m), flag(f) {}
 };
 // Scoring constants
 const int INF = 50000;        // Infinity
@@ -32,10 +37,14 @@ class AI : public Player {
     int searchDepth;
     std::vector<TTEntry> transpositionTable;
     int ttSize = 0;
+
+    std::mutex ttMutex;
 public:
     AI(EvaluationFunctions* evalStrategy, int depth) 
-        : evaluate(evalStrategy), searchDepth(depth) {}
-
+        : evaluate(evalStrategy), searchDepth(depth) {
+        ttSize = 2000000; 
+        transpositionTable.resize(ttSize);
+    }
     ~AI() {
         if (evaluate) delete evaluate;
     }

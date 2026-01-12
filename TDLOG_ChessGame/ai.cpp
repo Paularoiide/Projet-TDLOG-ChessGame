@@ -135,6 +135,7 @@ int MaterialAndPositionEvaluation::operator()(const Board& board) const {
 // HELPER : TRANSPOSITION TABLE
 // ==========================================
 void AI::storeTT(uint64_t key, int score, int depth, int alpha, int beta, Move bestMove) {
+    std::lock_guard<std::mutex> lock(ttMutex); // Ensure thread safety for TT
     // index calculation
     size_t index = key % ttSize;
     
@@ -146,6 +147,8 @@ void AI::storeTT(uint64_t key, int score, int depth, int alpha, int beta, Move b
 }
 
 bool AI::probeTT(uint64_t key, int depth, int alpha, int beta, int& score, Move& bestMove) {
+    std::lock_guard<std::mutex> lock(ttMutex); // Ensure thread safety for TT
+    // index calculation
     size_t index = key % ttSize;
     const TTEntry& entry = transpositionTable[index];
 
@@ -319,6 +322,9 @@ int AI::quiescence(const Board& board, int alpha, int beta, int colorMultiplier)
     for (const auto& move : moves) {
         Board nextBoard = board;
         nextBoard.movePiece(move.from, move.to, move.promotion);
+        if (nextBoard.isInCheck(turn)) {
+            continue; // Illegal capture, skip
+        }
         int score = -quiescence(nextBoard, -beta, -alpha, -colorMultiplier);
         if (score >= beta) return beta;
         if (score > alpha) alpha = score;
