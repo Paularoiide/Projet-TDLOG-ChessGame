@@ -72,7 +72,7 @@ PieceType Board::getPieceTypeAt(int square, Color& color) const {
     return PieceType::None;
 }
 
-void Board::movePiece(int from, int to, PieceType promotion) {
+bool Board::movePiece(int from, int to, PieceType promotion) {
     Color color;
     PieceType pt = getPieceTypeAt(from, color);
     if (pt == PieceType::None) return;
@@ -132,7 +132,7 @@ void Board::movePiece(int from, int to, PieceType promotion) {
     }
     enPassantTarget_ = nextEnPassantTarget;
 
-    // 7. Move the piece (with optional promotion)
+    // 7. Move the piece (with optional promotion, for AI)
     popBit(bitboards_[static_cast<int>(color)][static_cast<int>(pt)], from);
     if (promotion != PieceType::None) {
         setBit(bitboards_[static_cast<int>(color)][static_cast<int>(promotion)], to);
@@ -141,6 +141,23 @@ void Board::movePiece(int from, int to, PieceType promotion) {
     }
 
     updateOccupancies();
+
+    return (pt == PieceType::Pawn && (to/8==0 || to/8==7));
+}
+
+bool Board::doProm(int pos, PieceType promotion) {
+    Color color;
+    PieceType pt = getPieceTypeAt(pos, color);
+    if (pt!=PieceType::Pawn) return false;
+    if ((promotion == PieceType::Queen) 
+        || (promotion == PieceType::Rook)
+        || (promotion == PieceType::Knight)
+        || (promotion == PieceType::Bishop)) {
+        popBit(bitboards_[static_cast<int>(color)][static_cast<int>(pt)], pos);
+        setBit(bitboards_[static_cast<int>(color)][static_cast<int>(promotion)], pos);
+        return true;
+    }
+    return false;
 }
 
 // =======================

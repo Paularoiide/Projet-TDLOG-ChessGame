@@ -10,26 +10,10 @@ Game::Game() : board_(), currentTurn_(Color::White) {
 
 void Game::startGame() {
     currentTurn_ = Color::White;
+    promPos = -1;
 }
 
-bool Game::playMove(const Move& moveReq) {
-    // 1. Generate legal moves
-    std::vector<Move> legalMoves = board_.generateLegalMoves(currentTurn_);
-
-    // 2. Validate the move
-    bool found = false;
-    for (const auto& m : legalMoves) {
-        if (m.from == moveReq.from && m.to == moveReq.to && m.promotion == moveReq.promotion) {
-            found = true;
-            break;
-        }
-    }
-    
-    if (!found) return false;
-
-    // 3. Play the move
-    board_.movePiece(moveReq.from, moveReq.to, moveReq.promotion);
-    
+void Game::endTurn() {
     currentTurn_ = opposite(currentTurn_);
 
     // 4. Update state (Checkmate/Stalemate logic)
@@ -49,9 +33,51 @@ bool Game::playMove(const Move& moveReq) {
             state_ = GameState::Playing;
         }
     }
+}
+
+bool Game::playMove(const Move& moveReq) {
+    // 1. Generate legal moves
+    std::vector<Move> legalMoves = board_.generateLegalMoves(currentTurn_);
+
+    // 2. Validate the move
+    bool found = false;
+    for (const auto& m : legalMoves) {
+        if (m.from == moveReq.from && m.to == moveReq.to && m.promotion == moveReq.promotion) {
+            found = true;
+            break;
+        }
+    }
+    
+    if (!found) return false;
+
+    // 3. Play the move
+    if (board_.movePiece(moveReq.from, moveReq.to, moveReq.promotion)){
+        state_ = GameState::Prom;
+        promPos = moveReq.to;
+    }
+    else{
+        endTurn();
+    }
 
     return true;
 }
 
-
-bool prom
+bool Game::prom(int choice){
+    if ((0<=choice)&&(choice<=3)){
+        PieceType pt;
+        switch(choice){
+            case 0: pt=PieceType::Knight;
+            case 1: pt=PieceType::Bishop;
+            case 2: pt=PieceType::Rook;
+            case 3: pt=PieceType::Queen;
+            default: pt=PieceType::None;
+        }
+        if (pt!=PieceType::None && promPos!=(-1) && board_.doProm(promPos, pt)){
+            promPos = -1;
+            state_ = GameState::Playing; //probablement inutil
+            endTurn();
+            return true;
+        }
+    }
+    return false;
+}

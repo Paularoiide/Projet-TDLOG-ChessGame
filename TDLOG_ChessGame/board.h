@@ -38,7 +38,10 @@ public:
     static bool getBit(Bitboard bb, int square) { return (bb & (1ULL << square)); }
 
     // Game logic
-    void movePiece(int from, int to, PieceType promotion = PieceType::None);
+    bool movePiece(int from, int to, PieceType promotion = PieceType::None);
+
+    // For promotion
+    bool doProm(int pos, PieceType promotion);
 
     // Move generation (simplified example)
     std::vector<Move> generateLegalMoves(Color turn) const;

@@ -156,7 +156,7 @@ int main() {
                     }
                     if (line.empty()) continue;
                     if (line.substr(0, 4) == "PROM"){
-                        answer = g.prom(line.substr(5));
+                        answer = g.prom(stoi(line.substr(5)));
                         if (!answer) continue;
                     }
                 }
