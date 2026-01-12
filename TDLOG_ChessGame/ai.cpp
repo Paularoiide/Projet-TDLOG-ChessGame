@@ -160,6 +160,7 @@ bool AI::probeTT(uint64_t key, int depth, int alpha, int beta, int& score, Move&
         // We can only use the score if the stored search was 
         // at least as deep as what we're currently requesting.
         if (entry.depth >= depth) {
+            if (std::abs(entry.score) > MATE_VALUE - 100) return false;
             if (entry.flag == TTFlag::EXACT) {
                 score = entry.score;
                 return true;
@@ -202,7 +203,7 @@ int AI::negamax(const Board& board, int depth, int alpha, int beta, int colorMul
     std::vector<Move> moves = board.generateLegalMoves(turn);
 
     if (moves.empty()) {
-        if (board.isInCheck(turn)) return -MATE_VALUE + depth; 
+        if (board.isInCheck(turn)) return -MATE_VALUE - depth; // depth to prefer quicker mates
         return 0; 
     }
 
