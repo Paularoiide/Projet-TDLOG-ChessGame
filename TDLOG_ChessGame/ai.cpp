@@ -131,68 +131,150 @@ int MaterialAndPositionEvaluation::operator()(const Board& board) const {
     }
     return score;
 }
-
 // ==========================================
-// 4. NEGAMAX ALGORITHM (With Quiescence from Dev)
+// HELPER : TRANSPOSITION TABLE
+// ==========================================
+void AI::storeTT(uint64_t key, int score, int depth, int alpha, int beta, Move bestMove) {
+    // index calculation
+    size_t index = key % ttSize;
+    
+    TTFlag flag = TTFlag::EXACT;
+    if (score <= alpha) flag = TTFlag::ALPHA;      // Fail Low (Upper Bound)
+    else if (score >= beta) flag = TTFlag::BETA;   // Fail High (Lower Bound)
+    
+    transpositionTable[index] = { key, score, depth, bestMove, flag };
+}
+
+bool AI::probeTT(uint64_t key, int depth, int alpha, int beta, int& score, Move& bestMove) {
+    size_t index = key % ttSize;
+    const TTEntry& entry = transpositionTable[index];
+
+    // Key verification (to avoid hash collisions)
+    if (entry.key == key) {
+        // Retrieve the best move if available (useful for move ordering later!)
+        if (entry.bestMove.from != -1) bestMove = entry.bestMove;
+
+        // We can only use the score if the stored search was 
+        // at least as deep as what we're currently requesting.
+        if (entry.depth >= depth) {
+            if (entry.flag == TTFlag::EXACT) {
+                score = entry.score;
+                return true;
+            }
+            if (entry.flag == TTFlag::ALPHA && entry.score <= alpha) {
+                score = alpha;
+                return true;
+            }
+            if (entry.flag == TTFlag::BETA && entry.score >= beta) {
+                score = beta;
+                return true;
+            }
+        }
+    }
+    return false;
+}
+// ==========================================
+// 4. NEGAMAX ALGORITHM (With Quiescence)
 // ==========================================
 int AI::negamax(const Board& board, int depth, int alpha, int beta, int colorMultiplier) {
-    // Appel de la Quiescence Search à la profondeur 0 (optimisation Dev)
+    int alphaOrig = alpha;
+
+    // 1. HASHING
+    uint64_t hash = board.getHash();
+    if (colorMultiplier == -1) { 
+        // Hash for "Black" = HashBoard ^ SideKey. 
+        hash = ~hash; 
+    }
+
+    // 2. PROBE TT
+    int ttScore;
+    Move ttMove(0,0); // Move suggested by the TT
+    if (probeTT(hash, depth, alpha, beta, ttScore, ttMove)) {
+        return ttScore; // Immediate cutoff!
+    }
+
     if (depth == 0) return quiescence(board, alpha, beta, colorMultiplier);
 
     Color turn = (colorMultiplier == 1) ? Color::White : Color::Black;
     std::vector<Move> moves = board.generateLegalMoves(turn);
 
     if (moves.empty()) {
-        if (board.isInCheck(turn)) return -MATE_VALUE + depth;
-        return 0; // Pat
+        if (board.isInCheck(turn)) return -MATE_VALUE + depth; 
+        return 0; 
     }
 
-    std::sort(moves.begin(), moves.end(), [](const Move& a, const Move& b) {
+    // 3. IMPROVED MOVE SORTING (Hash Move)
+    // If the TT gave us a "Best move" from a previous search,
+    // we must absolutely test it FIRST. That's what speeds everything up.
+    auto moveSorter = [&](const Move& a, const Move& b) {
+        // The TT move has absolute priority
+        if (ttMove.from != 0) { // If valid move
+            if (a.from == ttMove.from && a.to == ttMove.to) return true; 
+            if (b.from == ttMove.from && b.to == ttMove.to) return false;
+        }
         if (a.isCapture != b.isCapture) return a.isCapture;
         if (a.promotion != PieceType::None) return true;
         return false;
-    });
+    };
+    std::sort(moves.begin(), moves.end(), moveSorter);
 
     int maxScore = -INF;
+    Move bestMoveFound(0,0);
+
     for (const auto& move : moves) {
         Board nextBoard = board;
         nextBoard.movePiece(move.from, move.to, move.promotion);
         
         int score = -negamax(nextBoard, depth - 1, -beta, -alpha, -colorMultiplier);
-        if (score > maxScore) maxScore = score;
+        
+        if (score > maxScore) {
+            maxScore = score;
+            bestMoveFound = move;
+        }
         if (score > alpha) alpha = score;
-        if (alpha >= beta) break;
+        if (alpha >= beta) break; 
     }
+
+    // 4. STORE TT
+    storeTT(hash, maxScore, depth, alphaOrig, beta, bestMoveFound);
+
     return maxScore;
 }
 
 // ==========================================
-// 5. ROOT SEARCH (Multithreaded from Dev)
+// 5. ROOT SEARCH
 // ==========================================
 Move AI::getBestMove(const Board& board, Color turn) {
+    
     std::vector<Move> moves = board.generateLegalMoves(turn);
     if (moves.empty()) return Move(0, 0);
 
-    std::sort(moves.begin(), moves.end(), [](const Move& a, const Move& b) {
+    // initial sort with TT move and captures first (if available)
+    uint64_t hash = board.getHash();
+    if (turn == Color::Black) hash = ~hash;
+    
+    int ttScore; Move ttMove(0,0);
+    probeTT(hash, searchDepth, -INF, INF, ttScore, ttMove);
+
+    std::sort(moves.begin(), moves.end(), [&](const Move& a, const Move& b) {
+        if (ttMove.from != 0) {
+            if (a.from == ttMove.from && a.to == ttMove.to) return true; 
+            if (b.from == ttMove.from && b.to == ttMove.to) return false;
+        }
         return a.isCapture > b.isCapture;
     });
 
-    struct MoveResult {
-        int score;
-        Move move;
-    };
-
+    struct MoveResult { int score; Move move; };
     std::vector<std::future<MoveResult>> futures;
     int colorMultiplier = (turn == Color::White) ? 1 : -1;
-    int currentDepth = this->searchDepth; 
 
-    // Lancement des threads asynchrones
     for (const auto& move : moves) {
         futures.push_back(std::async(std::launch::async, [=, &board]() -> MoveResult {
             Board threadBoard = board; 
             threadBoard.movePiece(move.from, move.to, move.promotion);
             
-            int score = -negamax(threadBoard, currentDepth - 1, -INF, INF, -colorMultiplier);
+            // Negamax
+            int score = -negamax(threadBoard, this->searchDepth - 1, -INF, INF, -colorMultiplier);
             return {score, move};
         }));
     }
@@ -200,7 +282,6 @@ Move AI::getBestMove(const Board& board, Color turn) {
     Move bestMove = moves[0];
     int maxScore = -INF;
 
-    // Récupération des résultats
     for (auto& f : futures) {
         MoveResult res = f.get();
         if (res.score > maxScore) {
@@ -208,28 +289,25 @@ Move AI::getBestMove(const Board& board, Color turn) {
             bestMove = res.move;
         }
     }
-
+    
+    // We also save the root result in the TT for future use
+    storeTT(hash, maxScore, searchDepth, -INF, INF, bestMove);
+    
     return bestMove;
 }
-
 // ==========================================
 // 6. QUIESCENCE SEARCH (From Dev)
 // ==========================================
 int AI::quiescence(const Board& board, int alpha, int beta, int colorMultiplier) {
-    // 1. Stand Pat (Evaluation statique via notre fonction compatible Fairy)
+    // Stand Pat (Evaluation statique via notre fonction compatible Fairy)
     int stand_pat = colorMultiplier * (*evaluate)(board);
 
     if (stand_pat >= beta) return beta;
-
-    const int DELTA = 975; // Marge de sécurité
-    if (stand_pat < alpha - DELTA) {
-        return alpha;
-    }
-
+    const int DELTA = 975;
+    if (stand_pat < alpha - DELTA) return alpha;
     if (stand_pat > alpha) alpha = stand_pat;
 
     Color turn = (colorMultiplier == 1) ? Color::White : Color::Black;
-    // On génère uniquement les captures pour calmer le jeu
     std::vector<Move> moves = board.generateCaptures(turn); 
 
     std::sort(moves.begin(), moves.end(), [](const Move& a, const Move& b) {
@@ -241,9 +319,7 @@ int AI::quiescence(const Board& board, int alpha, int beta, int colorMultiplier)
     for (const auto& move : moves) {
         Board nextBoard = board;
         nextBoard.movePiece(move.from, move.to, move.promotion);
-
         int score = -quiescence(nextBoard, -beta, -alpha, -colorMultiplier);
-
         if (score >= beta) return beta;
         if (score > alpha) alpha = score;
     }
