@@ -533,7 +533,152 @@ std::vector<Move> Board::generateLegalMoves(Color turn) const {
 
     return realLegalMoves;
 }
+std::vector<Move> Board::generateCaptures(Color turn) const {
+    std::vector<Move> moves;
+    moves.reserve(10); // Captures are usually fewer
 
+    int c = static_cast<int>(turn);
+    int opp = c ^ 1;
+
+    Bitboard us   = occupancies_[c];
+    Bitboard them = occupancies_[opp];
+
+    // --- 1. PAWNS  ---
+    Bitboard pawns = bitboards_[c][static_cast<int>(PieceType::Pawn)];
+    int up = (turn == Color::White) ? 8 : -8;
+    int promotionRank = (turn == Color::White) ? 7 : 0;
+
+    // Offsets for pawn captures ( -1 and +1 files )
+    // White captures: +7 (diag gauche), +9 (diag droite)
+    // Black captures: -9 (diag gauche), -7 (diag droite)
+    int capOffsets[] = { (turn==Color::White ? 7 : -9), (turn==Color::White ? 9 : -7) };
+
+    for (int sq = 0; sq < 64; ++sq) {
+        if (!getBit(pawns, sq)) continue;
+        
+        int r = sq / 8;
+        int file = sq % 8;
+
+        for (int offset : capOffsets) {
+            int target = sq + offset;
+            // Wraparound check
+            // If we are on file A (0) and move left -> invalid
+            // If we are on file H (7) and move right -> invalid
+            int targetFile = target % 8;
+            if (std::abs(targetFile - file) > 1) continue; 
+            if (target < 0 || target >= 64) continue;
+
+            bool isEnemy = getBit(them, target);
+            bool isEnPassant = (target == enPassantTarget_);
+
+            if (isEnemy || isEnPassant) {
+                if (r == promotionRank - (turn==Color::White?1:-1)) { // Rank just before promotion
+                    // Captures with promotion
+                    moves.emplace_back(sq, target, PieceType::Queen);  moves.back().isCapture = true;
+                    // We can add R, B, N if we want to be exhaustive, but Q is often enough for quiescence
+                } else {
+                    moves.emplace_back(sq, target);
+                    moves.back().isCapture = true;
+                }
+            }
+        }
+    }
+
+    // --- 2. KNIGHTS ---
+    Bitboard knights = bitboards_[c][static_cast<int>(PieceType::Knight)];
+    const int kOffsets[] = {-17, -15, -10, -6, 6, 10, 15, 17};
+    while (knights) {
+        int sq = __builtin_ctzll(knights); // Bitboard optimization
+        knights &= (knights - 1);
+        
+        int x = sq % 8;
+        for (int offset : kOffsets) {
+            int target = sq + offset;
+            if (target >= 0 && target < 64) {
+                if (std::abs((target % 8) - x) <= 2) {
+                    // ONLY DIFFERENCE WITH generateLegalMoves:
+                    // We keep only if it's an enemy
+                    if (getBit(them, target)) {
+                        Move m(sq, target);
+                        m.isCapture = true;
+                        moves.push_back(m);
+                    }
+                }
+            }
+        }
+    }
+
+    // --- 3. KING (Captures only, no castling) ---
+    Bitboard king = bitboards_[c][static_cast<int>(PieceType::King)];
+    if (king) {
+        int sq = __builtin_ctzll(king);
+        const int kiOffsets[] = {-9, -8, -7, -1, 1, 7, 8, 9};
+        int x = sq % 8;
+        for (int offset : kiOffsets) {
+            int target = sq + offset;
+            if (target >= 0 && target < 64 && std::abs((target % 8) - x) <= 1) {
+                if (getBit(them, target)) {
+                    Move m(sq, target);
+                    m.isCapture = true;
+                    moves.push_back(m);
+                }
+            }
+        }
+    }
+
+    // --- 4. SLIDING PIECES (Bishops, Rooks, Queens) ---
+    auto generateSlidingCaptures = [&](PieceType pt, const int* dirs, int numDirs) {
+        Bitboard pieces = bitboards_[c][static_cast<int>(pt)];
+        while (pieces) {
+            int sq = __builtin_ctzll(pieces);
+            pieces &= (pieces - 1);
+            
+            int x = sq % 8; 
+            int y = sq / 8;
+
+            for (int d = 0; d < numDirs; ++d) {
+                int step = dirs[d];
+                // Pre-calculate x/y deltas to avoid modulo operations in the while loop
+                int dx = 0, dy = 0;
+                if (step == -8) dy = -1; else if (step == 8) dy = 1;
+                else if (step == -1) dx = -1; else if (step == 1) dx = 1;
+                else if (step == -9) {dx=-1;dy=-1;} else if (step == -7) {dx=1;dy=-1;}
+                else if (step == 7) {dx=-1;dy=1;} else if (step == 9) {dx=1;dy=1;}
+
+                int curX = x; 
+                int curY = y;
+                
+                while (true) {
+                    curX += dx; curY += dy;
+                    if (curX < 0 || curX > 7 || curY < 0 || curY > 7) break;
+                    
+                    int curSq = curY * 8 + curX;
+
+                    if (getBit(us, curSq)) break; // Blocked by ally
+
+                    if (getBit(them, curSq)) {
+                        // It's an enemy -> CAPTURE and STOP
+                        Move m(sq, curSq);
+                        m.isCapture = true;
+                        moves.push_back(m);
+                        break; 
+                    }
+                    // If the square is empty, we continue sliding, BUT we do not add the move
+                }
+            }
+        }
+    };
+
+    const int rookDirs[]   = {-8, 8, -1, 1};
+    const int bishopDirs[] = {-9, -7, 7, 9};
+
+    generateSlidingCaptures(PieceType::Rook,   rookDirs,   4);
+    generateSlidingCaptures(PieceType::Bishop, bishopDirs, 4);
+    generateSlidingCaptures(PieceType::Queen,  rookDirs,   4);
+    generateSlidingCaptures(PieceType::Queen,  bishopDirs, 4);
+
+    return moves;
+}
 int Board::getKingSquare(Color c) const {
     Bitboard kingBB = bitboards_[static_cast<int>(c)][static_cast<int>(PieceType::King)];
     if (kingBB == 0) return -1;
