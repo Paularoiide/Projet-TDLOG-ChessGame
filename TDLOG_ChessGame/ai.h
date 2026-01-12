@@ -37,4 +37,5 @@ public:
 private:
     // Recursive search engine (Negamax)
     int negamax(const Board& board, int depth, int alpha, int beta, int colorMultiplier);
+    int quiescence(const Board& board, int alpha, int beta, int colorMultiplier);
 };

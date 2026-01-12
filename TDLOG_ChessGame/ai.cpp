@@ -107,7 +107,7 @@ int MaterialAndPositionEvaluation::operator()(const Board& board) const {
 // 3. NEGAMAX ALGORITHM
 // ==========================================
 int AI::negamax(const Board& board, int depth, int alpha, int beta, int colorMultiplier) {
-    if (depth == 0) return colorMultiplier * (*evaluate)(board);
+    if (depth == 0) return quiescence(board, alpha, beta, colorMultiplier);
 
     Color turn = (colorMultiplier == 1) ? Color::White : Color::Black;
     std::vector<Move> moves = board.generateLegalMoves(turn);
@@ -185,4 +185,58 @@ Move AI::getBestMove(const Board& board, Color turn) {
     }
     
     return bestMove;
+}
+// ==========================================
+// 5. QUIESCENCE SEARCH (Calming Search)
+// ==========================================
+// This function extends the search at leaf nodes to include only "noisy" moves like captures.
+int AI::quiescence(const Board& board, int alpha, int beta, int colorMultiplier) {
+    // 1. Static Evaluation
+    // If we do nothing, what is the score?
+    int stand_pat = colorMultiplier * (*evaluate)(board);
+
+    // 2. Beta Cutoff (Hard pruning)
+    // If the current position is already too good, the opponent won't let us get there.
+    if (stand_pat >= beta) {
+        return beta;
+    }
+
+    // 3. Alpha Update
+    // If doing nothing is better than what we've found elsewhere, raise alpha.
+    if (stand_pat > alpha) {
+        alpha = stand_pat;
+    }
+
+    // 4. Move Generation (ONLY CAPTURES)
+    // Note : Ideally, there should be a generateCaptures() method in Board
+    // for faster performance, but we'll filter here for now.
+    Color turn = (colorMultiplier == 1) ? Color::White : Color::Black;
+    std::vector<Move> moves = board.generateLegalMoves(turn); // Generating all moves (optimizable later)
+    // MVV-LVA Sorting
+    auto moveSorter = [](const Move& a, const Move& b) {
+        // We want to look at captures first
+        if (a.isCapture != b.isCapture) return a.isCapture;
+        // We ignore non-captures below, but sorting helps
+        return false; 
+    };
+    std::sort(moves.begin(), moves.end(), moveSorter);
+
+    for (const auto& move : moves) {
+        // IMPORTANT: Only look at captures in Quiescence Search
+        if (!move.isCapture) continue;
+
+        Board nextBoard = board;
+        nextBoard.movePiece(move.from, move.to, move.promotion);
+
+        // Recursive call (stay in quiescence)
+        int score = -quiescence(nextBoard, -beta, -alpha, -colorMultiplier);
+
+        if (score >= beta) {
+            return beta;
+        }
+        if (score > alpha) {
+            alpha = score;
+        }
+    }
+    return alpha;
 }
