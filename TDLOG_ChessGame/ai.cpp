@@ -56,29 +56,49 @@ Move AI::getMove(Game& g) {
     return getBestMove(g.board(), g.currentTurn());
 }
 // ==========================================
-// 2. EVALUATION FUNCTION
+// 2. EVALUATION FUNCTION (Optimized)
 // ==========================================
+static inline int getLSB(uint64_t bb) {
+    return __builtin_ctzll(bb);
+}
+
 int MaterialAndPositionEvaluation::operator()(const Board& board) const {
     int score = 0;
-    for (int sq = 0; sq < 64; ++sq) {
-        Color c;
-        PieceType pt = board.getPieceTypeAt(sq, c);
-        if (pt == PieceType::None) continue;
-        
-        int val = pieceValues[static_cast<int>(pt)];
-        int tableScore = 0;
-        int tableIdx = (c == Color::White) ? sq : (sq ^ 56);
-        
-        switch (pt) {
-            case PieceType::Pawn:   tableScore = pawnTable[tableIdx]; break;
-            case PieceType::Knight: tableScore = knightTable[tableIdx]; break;
-            case PieceType::Bishop: tableScore = bishopTable[tableIdx]; break;
-            case PieceType::Rook:   tableScore = rookTable[tableIdx]; break;
-            default: break;
+
+    // Material and positional evaluation
+    for (int p = 0; p < 6; ++p) {
+        PieceType pt = static_cast<PieceType>(p);
+        int val = pieceValues[p];
+
+        // --- BLANCS ---
+        Bitboard bbWhite = board.getBitboard(Color::White, pt);
+        while (bbWhite) {
+            int sq = getLSB(bbWhite);
+            
+            // add material and positional value
+            score += (val + (pt == PieceType::Pawn   ? pawnTable[sq] :
+                             pt == PieceType::Knight ? knightTable[sq] :
+                             pt == PieceType::Bishop ? bishopTable[sq] :
+                             pt == PieceType::Rook   ? rookTable[sq] : 0));
+            
+            bbWhite &= (bbWhite - 1);
         }
-        
-        if (c == Color::White) score += (val + tableScore);
-        else                   score -= (val + tableScore);
+
+        // --- BLACK ---
+        Bitboard bbBlack = board.getBitboard(Color::Black, pt);
+        while (bbBlack) {
+            int sq = getLSB(bbBlack);
+            
+            // For black pieces, we need to mirror the square for positional value
+            int tableIdx = sq ^ 56;
+
+            score -= (val + (pt == PieceType::Pawn   ? pawnTable[tableIdx] :
+                             pt == PieceType::Knight ? knightTable[tableIdx] :
+                             pt == PieceType::Bishop ? bishopTable[tableIdx] :
+                             pt == PieceType::Rook   ? rookTable[tableIdx] : 0));
+            
+            bbBlack &= (bbBlack - 1);
+        }
     }
     return score;
 }
@@ -96,16 +116,20 @@ int AI::negamax(const Board& board, int depth, int alpha, int beta, int colorMul
         if (board.isInCheck(turn)) return -MATE_VALUE + depth; 
         return 0; 
     }
-
+    // Move ordering: prioritize captures and promotions
     std::sort(moves.begin(), moves.end(), [](const Move& a, const Move& b) {
-        return a.isCapture > b.isCapture;
+        if (a.isCapture != b.isCapture) return a.isCapture;
+        if (a.promotion != PieceType::None) return true;
+        return false;
     });
 
     int maxScore = -INF;
     for (const auto& move : moves) {
         Board nextBoard = board;
         nextBoard.movePiece(move.from, move.to, move.promotion);
+        
         int score = -negamax(nextBoard, depth - 1, -beta, -alpha, -colorMultiplier);
+        
         if (score > maxScore) maxScore = score;
         if (score > alpha) alpha = score;
         if (alpha >= beta) break; 
