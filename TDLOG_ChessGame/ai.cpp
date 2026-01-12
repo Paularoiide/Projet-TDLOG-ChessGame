@@ -2,7 +2,7 @@
 #include <algorithm>
 #include <vector>
 #include <iostream>
-#include <omp.h>
+#include <future>
 // ==========================================
 // 1. PIECE-SQUARE TABLES (Position Tables)
 // ==========================================
@@ -51,19 +51,24 @@ const int rookTable[64] = {
 };
 
 const int pieceValues[] = { 100, 320, 330, 500, 900, 20000 };
-
+// to satisfy linker
+Move AI::getMove(Game& g) {
+    return getBestMove(g.board(), g.currentTurn());
+}
 // ==========================================
 // 2. EVALUATION FUNCTION
 // ==========================================
-int AI::evaluate(const Board& board) {
+int MaterialAndPositionEvaluation::operator()(const Board& board) const {
     int score = 0;
     for (int sq = 0; sq < 64; ++sq) {
         Color c;
         PieceType pt = board.getPieceTypeAt(sq, c);
         if (pt == PieceType::None) continue;
+        
         int val = pieceValues[static_cast<int>(pt)];
         int tableScore = 0;
         int tableIdx = (c == Color::White) ? sq : (sq ^ 56);
+        
         switch (pt) {
             case PieceType::Pawn:   tableScore = pawnTable[tableIdx]; break;
             case PieceType::Knight: tableScore = knightTable[tableIdx]; break;
@@ -71,6 +76,7 @@ int AI::evaluate(const Board& board) {
             case PieceType::Rook:   tableScore = rookTable[tableIdx]; break;
             default: break;
         }
+        
         if (c == Color::White) score += (val + tableScore);
         else                   score -= (val + tableScore);
     }
@@ -81,7 +87,7 @@ int AI::evaluate(const Board& board) {
 // 3. NEGAMAX ALGORITHM
 // ==========================================
 int AI::negamax(const Board& board, int depth, int alpha, int beta, int colorMultiplier) {
-    if (depth == 0) return colorMultiplier * evaluate(board);
+    if (depth == 0) return colorMultiplier * (*evaluate)(board);
 
     Color turn = (colorMultiplier == 1) ? Color::White : Color::Black;
     std::vector<Move> moves = board.generateLegalMoves(turn);
@@ -110,7 +116,7 @@ int AI::negamax(const Board& board, int depth, int alpha, int beta, int colorMul
 // ==========================================
 // 4. ROOT OF THE SEARCH
 // ==========================================
-Move AI::getBestMove(const Board& board, int depth, Color turn) {
+Move AI::getBestMove(const Board& board, Color turn) {
     std::vector<Move> moves = board.generateLegalMoves(turn);
     if (moves.empty()) return Move(0, 0);
 
@@ -118,29 +124,41 @@ Move AI::getBestMove(const Board& board, int depth, Color turn) {
     std::sort(moves.begin(), moves.end(), [](const Move& a, const Move& b) {
         return a.isCapture > b.isCapture;
     });
-    
+    // Structure to hold move and its score
+    struct MoveResult {
+        int score;
+        Move move;
+    };
+
+    std::vector<std::future<MoveResult>> futures;
+    int colorMultiplier = (turn == Color::White) ? 1 : -1;
+    for (const auto& move : moves) {
+        
+        futures.push_back(std::async(std::launch::async, [=, &board]() -> MoveResult {
+            // 1. Copy the board
+            Board threadBoard = board; 
+            // 2. apply move
+            threadBoard.movePiece(move.from, move.to, move.promotion);
+
+            // 3. Calculate the score (depth - 1)
+            int score = -negamax(threadBoard, this->searchDepth - 1, -INF, INF, -colorMultiplier);
+
+            return {score, move};
+        }));
+    }
+
     Move bestMove = moves[0];
     int maxScore = -INF;
-    int colorMultiplier = (turn == Color::White) ? 1 : -1;
 
-    #pragma omp parallel for schedule(dynamic)
-    for (int i = 0; i < moves.size(); ++i) {
-        Move move = moves[i]; 
-        // Local board copy for each thread
-        Board nextBoard = board; 
-        nextBoard.movePiece(move.from, move.to, move.promotion);
-
-
-        int score = -negamax(nextBoard, this->searchDepth - 1, -INF, INF, -colorMultiplier);
-
-        // Critical section to update best move
-        #pragma omp critical
-        {
-            if (score > maxScore) {
-                maxScore = score;
-                bestMove = move;
-            }
+    for (auto& f : futures) {
+        // .get() waits for the thread to finish and retrieves the result
+        MoveResult res = f.get();
+        
+        if (res.score > maxScore) {
+            maxScore = res.score;
+            bestMove = res.move;
         }
     }
+    
     return bestMove;
 }
