@@ -65,7 +65,8 @@ Move parse_move_string(std::string line) {
 int main() {
     Game game;
     game.startGame();
-
+    // choose depth here
+    AI bot(new MaterialAndPositionEvaluation(), 6);
     print_board_raw(game.board());
 
     std::string line;
@@ -89,7 +90,7 @@ int main() {
         }
 
         // --- AI Turn ---
-        Move aiMove = AI::getBestMove(game.board(), 5, game.currentTurn());
+        Move aiMove = bot.getBestMove(game.board(), game.currentTurn());
         game.playMove(aiMove);
 
         print_board_raw(game.board());
