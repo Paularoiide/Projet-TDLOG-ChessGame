@@ -3,7 +3,7 @@
 #include "board.h"
 #include "piece.h" // Pour l'enum Color
 #include "move.h"
-enum class GameState { Playing, Check, Checkmate, Stalemate };
+enum class GameState { Playing, Check, Checkmate, Stalemate, Prom };
 class Game {
     Board board_;
     Color currentTurn_;

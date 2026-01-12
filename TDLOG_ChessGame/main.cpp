@@ -39,7 +39,7 @@ void print_board_raw(const Board& b) {
 }
 
 
-
+//Inutilise
 Move parse_move_string(std::string line) {
     std::stringstream ss(line);
     std::string a, b, promoWord;
@@ -67,6 +67,8 @@ Move parse_move_string(std::string line) {
 
 
 
+
+
 int main() {
     Game g;
     g.startGame();
@@ -80,7 +82,7 @@ int main() {
 
     //initialization
     while (std::getline(std::cin, line)){
-        if (line == "quit" || line == "q"){
+        if (line.length() >= 4 && line.substr(0, 4) == "quit") {
             std::cout << "END" << std::endl;
             return 0;
         } 
@@ -140,33 +142,33 @@ int main() {
                 *move = Move(from, to);
             }
                 
-            std::string answer = g.playMove(*move);
+            bool answer = g.playMove(*move);
             GameState state = g.gameState();
-            if (answer=="OK" && state==GameState::Prom){
+
+            //Promotion
+            if (answer && state==GameState::Prom){
                 std::cout << "PROM" << std::endl;
                 print_board_raw(g.board());
-                do_prom(); //TODO
+                while (std::getline(std::cin, line)){
+                    if (line.length() >= 4 && line.substr(0, 4) == "quit") {
+                        std::cout << "END" << std::endl;
+                        return 0;
+                    }
+                    if (line.empty()) continue;
+                    if (line.substr(0, 4) == "PROM"){
+                        answer = g.prom(line.substr(5));
+                        if (!answer) continue;
+                    }
+                }
             }
             std::cout << answer << std::endl;
-
             print_board_raw(g.board());
-
-            
-
-            if (state == GameState::Prom){
-                do_prom(); //TODO
-            }
 
             if (state == GameState::Checkmate || state == GameState::Stalemate) {
                 continue; // End of the game
             }
-                
-            }
-
         }
-
-
+        player = (player+1)%2;
     }
-
     return 0;
 }
