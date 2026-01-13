@@ -5,9 +5,9 @@
 #include <iostream>
 #include <future>
 
-// =====================================================
+
 // 1) TABLES DE POSITION (Piece-Square Tables)
-// =====================================================
+
 // Bonus/malus suivant la case occupée. Index 0..63.
 
 const int pawnTable[64] = {
@@ -60,16 +60,16 @@ const int pieceValues[] = {
     650, 850, 400, 300
 };
 
-// =====================================================
+
 // 2) IMPLÉMENTATION DE L'INTERFACE "PLAYER"
-// =====================================================
+
 Move AI::getMove(Game& g) {
     return getBestMove(g.board(), g.currentTurn());
 }
 
-// =====================================================
+
 // 3) ÉVALUATION (compatible pièces féeriques)
-// =====================================================
+
 
 // Renvoie l'indice du bit à 1 le plus à droite (bitboard non nul)
 static inline int getLSB(uint64_t bb) {
@@ -142,9 +142,9 @@ int MaterialAndPositionEvaluation::operator()(const Board& board) const {
     return score;
 }
 
-// =====================================================
+
 // OUTILS : TABLE DE TRANSPOSITION (TT)
-// =====================================================
+
 
 void AI::storeTT(uint64_t key, int score, int depth, int alpha, int beta, Move bestMove) {
     // On protège la TT si on fait de la recherche multi-thread
@@ -195,9 +195,9 @@ bool AI::probeTT(uint64_t key, int depth, int alpha, int beta, int& score, Move&
     return false;
 }
 
-// =====================================================
+
 // 4) NEGAMAX + ALPHA-BÊTA + QUIESCENCE
-// =====================================================
+
 int AI::negamax(const Board& board, int depth, int alpha, int beta, int colorMultiplier) {
     int alphaOrig = alpha;
 
@@ -262,9 +262,9 @@ int AI::negamax(const Board& board, int depth, int alpha, int beta, int colorMul
     return maxScore;
 }
 
-// =====================================================
+
 // 5) RECHERCHE À LA RACINE
-// =====================================================
+
 Move AI::getBestMove(const Board& board, Color turn) {
     std::vector<Move> moves = board.generateLegalMoves(turn);
     if (moves.empty()) return Move(0, 0);
@@ -317,9 +317,9 @@ Move AI::getBestMove(const Board& board, Color turn) {
     return bestMove;
 }
 
-// =====================================================
+
 // 6) QUIESCENCE (recherche sur les captures)
-// =====================================================
+
 int AI::quiescence(const Board& board, int alpha, int beta, int colorMultiplier) {
     // Évaluation statique
     int stand_pat = colorMultiplier * (*evaluate)(board);
