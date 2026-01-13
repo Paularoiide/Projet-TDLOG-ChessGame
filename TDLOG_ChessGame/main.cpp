@@ -26,6 +26,10 @@ void print_board_raw(const Board& b) {
                 case PieceType::Rook:   ch = 'R'; break;
                 case PieceType::Queen:  ch = 'Q'; break;
                 case PieceType::King:   ch = 'K'; break;
+                case PieceType::Princess:   ch = 'A'; break;
+                case PieceType::Empress:    ch = 'E'; break;
+                case PieceType::Nightrider: ch = 'H'; break;
+                case PieceType::Grasshopper: ch = 'G'; break;
                 default: break;
                 }
                 if (c == Color::Black) ch = (char)tolower(ch);
@@ -39,39 +43,40 @@ void print_board_raw(const Board& b) {
 }
 
 
-//Inutilise
-Move parse_move_string(std::string line) {
-    std::stringstream ss(line);
-    std::string a, b, promoWord;
-    ss >> a >> b >> promoWord;
-
-    auto parseSq = [](const std::string& s) -> int {
-        if (s.size() < 2) return -1;
-        return (s[1] - '1') * 8 + (s[0] - 'a');
-    };
-
-    int from = parseSq(a);
-    int to = parseSq(b);
-
-    PieceType promo = PieceType::None;
-    if (!promoWord.empty()) {
-        char p = std::tolower(promoWord[0]);
-        if (p == 'q') promo = PieceType::Queen;
-        else if (p == 'r') promo = PieceType::Rook;
-        else if (p == 'b') promo = PieceType::Bishop;
-        else if (p == 'n') promo = PieceType::Knight;
-    }
-    return Move(from, to, promo);
+std::string indexToSquare(int sq) {
+    std::string s = "";
+    s += (char)('a' + (sq % 8));
+    s += (char)('1' + (sq / 8));
+    return s;
 }
 
 
+int main(int argc, char* argv[]) {
 
+    Variant selectedVariant = Variant::Classic;
+    std::string gamemode = "PvP";
+    int depth[2] = {5, 5};
 
+    if(argc>1){
+        if (argv[1]=="fairy"){
+            selectedVariant = Variant::FairyChess;
+        }
+    }
 
+    if(argc>2){
+        gamemode = argv[2];
+    }
 
-int main() {
+    if(argc>3){
+        depth[0] = std::stoi(argv[3]);
+    }
+
+    if(argc>4){
+        depth[1] = std::stoi(argv[4]);
+    }
+
     Game g;
-    g.startGame();
+    g.startGame(selectedVariant);
 
     print_board_raw(g.board());
 
@@ -80,61 +85,76 @@ int main() {
     Player* player2;
     Player* players[2] = {player1, player2};
 
-    //initialization
-    while (std::getline(std::cin, line)){
-        if (line.length() >= 4 && line.substr(0, 4) == "quit") {
-            std::cout << "END" << std::endl;
-            return 0;
-        } 
-        if (line.empty()) continue;
-        if(line == "PvP"){
+    if(gamemode == "PvP"){
+        *player1 = HumanPlayer();
+        *player2 = HumanPlayer();
+    }
+    else{
+        if(gamemode == "PvAI"){
             *player1 = HumanPlayer();
-            *player2 = HumanPlayer();
         }
-        else{
-            if(line == "PvAI"){
-                *player1 = HumanPlayer();
-                *player2 = AI(new MaterialAndPositionEvaluation(), 6);
-            }
-            if(line == "AIvAI"){
-                *player1 = AI(new MaterialAndPositionEvaluation(), 6);
-                *player2 = AI(new MaterialAndPositionEvaluation(), 6);
-            }
+        if(line == "AIvAI"){
+            *player1 = AI(new MaterialAndPositionEvaluation(), depth[0]);
         }
-        break;
+        *player2 = AI(new MaterialAndPositionEvaluation(), depth[1]);
+
     }
 
-    int player = 0; 
-    bool break_iteration = true; //mis a false si move illegal
-    bool command_read = false; //indique si la commande a deja ete exploitee
 
+    int player = 0; 
+    bool played = false;
 
     while ((dynamic_cast<AI*>(players[player]))||(std::getline(std::cin, line))) {
         Move* move;
 
         if (dynamic_cast<AI*>(players[player])){
             *move = players[player]->getBestMove(g.board(), g.currentTurn());
+            bool answer = g.playMove(*move);
+            GameState state = g.gameState();
+
+            if (answer){
+                played = true;
+                std::cout << "VAL" << std::endl;
+            }
+            else{
+                std::cout << "ILL" << std::endl;
+            }
+
+            print_board_raw(g.board());
+
+            if (state == GameState::Checkmate || state == GameState::Stalemate) {
+                std::cout << "END" << std::endl;
+                return 0;
+            }
         }
         
         else{
 
-            if (line.length() >= 4 && line.substr(0, 4) == "quit") {
+            if (line.length() >= 3 && line.substr(0, 3) == "QUI") {
                 std::cout << "END" << std::endl;
                 return 0;
             } 
             if (line.empty()) continue;
 
-            if (line.length() >= 4 && line.substr(0, 4) == "move") {
+            auto parseSquare = [](const std::string& s) -> int {
+                if (s.size() < 2) return -1;
+                return (s[1] - '1') * 8 + (s[0] - 'a');
+            };
+
+            if (line.length() >= 3 && line.substr(0, 3) == "POS") {
+                std::stringstream ss(line.substr(4));
+                std::string a;
+                ss >> a;
+                int from = parseSquare(a);
+                //Retourner les cases possibles TODO
+            }
+
+            if (line.length() >= 3 && line.substr(0, 3) == "MOV") {
                 //joueur humain
 
-                std::stringstream ss(line.substr(5));
+                std::stringstream ss(line.substr(4));
                 std::string a, b;
                 ss >> a >> b;
-
-                auto parseSquare = [](const std::string& s) -> int {
-                    if (s.size() < 2) return -1;
-                    return (s[1] - '1') * 8 + (s[0] - 'a');
-                };
 
                 int from = parseSquare(a);
                 int to   = parseSquare(b);
@@ -147,28 +167,37 @@ int main() {
 
             //Promotion
             if (answer && state==GameState::Prom){
-                std::cout << "PROM" << std::endl;
+                std::cout << "PRO" << std::endl;
                 print_board_raw(g.board());
                 while (std::getline(std::cin, line)){
-                    if (line.length() >= 4 && line.substr(0, 4) == "quit") {
+                    if (line.length() >= 3 && line.substr(0, 3) == "QUI") {
                         std::cout << "END" << std::endl;
                         return 0;
                     }
                     if (line.empty()) continue;
-                    if (line.substr(0, 4) == "PROM"){
-                        answer = g.prom(stoi(line.substr(5)));
+                    if (line.substr(0, 3) == "PRO"){
+                        answer = g.prom(stoi(line.substr(4)));
                         if (!answer) continue;
                     }
                 }
             }
-            std::cout << answer << std::endl;
+            if (answer){
+                played = true;
+                std::cout << "VAL" << std::endl;
+            }
+            else{
+                std::cout << "ILL" << std::endl;
+            }
             print_board_raw(g.board());
 
             if (state == GameState::Checkmate || state == GameState::Stalemate) {
-                continue; // End of the game
+                std::cout << "END" << std::endl;
+                return 0;
             }
         }
-        player = (player+1)%2;
+        if (played){
+            player = (player+1)%2;
+        }
     }
     return 0;
 }

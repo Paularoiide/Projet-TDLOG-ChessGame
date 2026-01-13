@@ -8,7 +8,8 @@ Game::Game() : board_(), currentTurn_(Color::White) {
 
 
 
-void Game::startGame() {
+void Game::startGame(Variant v) {
+    board_ = Board(v); // On passe la variante au constructeur du Board
     currentTurn_ = Color::White;
     promPos = -1;
 }

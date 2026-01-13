@@ -12,7 +12,7 @@ class Game {
 
 public:
     Game();
-    void startGame();
+    void startGame(Variant v = Variant::Classic);
     void endTurn();
     bool playMove(const Move& move);
     bool prom(int pt);
