@@ -28,7 +28,7 @@ class Variante(enum.Enum):
 
 # --- MOTEUR ---
 class Engine():
-    def __init__(self, engine_path: str, variant: str, nb_ai: int = 0):
+    def __init__(self, engine_path: str, variant: str, nb_ai: int = 0, depth: int = 6):
         if not os.path.exists(engine_path):
             raise FileNotFoundError(f"Moteur introuvable à : {engine_path}")
         
@@ -40,7 +40,7 @@ class Engine():
         
         mode_arg = "pvp" if nb_ai == 0 else "pve"
         
-        cmd = [engine_path, variant, mode_arg] 
+        cmd = [engine_path, variant, mode_arg, str(depth)] 
         
         try:
             self.process = subprocess.Popen(
@@ -188,9 +188,9 @@ class Board():
         return [row[:] for row in self.board]
 
 class DisplayGame():
-    def __init__(self, root, variant_str: str, engine_path: str, nb_ai: int = 0):
+    def __init__(self, root, variant_str: str, engine_path: str, nb_ai: int = 0, depth: int = 6):
         self.root = root
-        self.engine = Engine(engine_path, variant_str, nb_ai)
+        self.engine = Engine(engine_path, variant_str, nb_ai, depth)
         self.board = Board(Variante.FAIRY if variant_str == "fairy" else Variante.CLASSIC)
         
         self.nb_ai = nb_ai
@@ -268,38 +268,44 @@ def find_executable(start_dir, exe_name):
     return None
 
 def ask_settings(root):
-    """Affiche une fenêtre pour configurer la Variante ET le Mode de jeu"""
+    """Configuration : Variante + Mode + Difficulté"""
     
     var_variant = tk.StringVar(value="classic")
     var_mode = tk.StringVar(value="pvp")
+    var_depth = tk.IntVar(value=6) # Valeur par défaut
     
     dialog = tk.Toplevel(root)
-    dialog.title("Configuration de la partie")
-    dialog.geometry("350x250")
+    dialog.title("Configuration")
+    dialog.geometry("400x350") # Un peu plus grand
     
-    tk.Label(dialog, text="1. Choisissez la variante :", font=("Arial", 11, "bold")).pack(pady=(15, 5))
-    
+    # 1. VARIANTE
+    tk.Label(dialog, text="1. Variante :", font=("Arial", 11, "bold")).pack(pady=(10, 5))
     frame_var = tk.Frame(dialog)
     frame_var.pack()
     tk.Radiobutton(frame_var, text="Classique", variable=var_variant, value="classic").pack(side=tk.LEFT, padx=10)
-    tk.Radiobutton(frame_var, text="Féerique (Fairy)", variable=var_variant, value="fairy").pack(side=tk.LEFT, padx=10)
+    tk.Radiobutton(frame_var, text="Féerique", variable=var_variant, value="fairy").pack(side=tk.LEFT, padx=10)
     
-    tk.Label(dialog, text="2. Choisissez le mode :", font=("Arial", 11, "bold")).pack(pady=(20, 5))
-    
+    # 2. MODE
+    tk.Label(dialog, text="2. Mode de jeu :", font=("Arial", 11, "bold")).pack(pady=(15, 5))
     frame_mode = tk.Frame(dialog)
     frame_mode.pack()
-    tk.Radiobutton(frame_mode, text="Joueur vs Joueur (PvP)", variable=var_mode, value="pvp").pack(side=tk.LEFT, padx=10)
-    tk.Radiobutton(frame_mode, text="Joueur vs IA (PvE)", variable=var_mode, value="pve").pack(side=tk.LEFT, padx=10)
+    tk.Radiobutton(frame_mode, text="Joueur vs Joueur", variable=var_mode, value="pvp").pack(side=tk.LEFT, padx=10)
+    tk.Radiobutton(frame_mode, text="Joueur vs IA", variable=var_mode, value="pve").pack(side=tk.LEFT, padx=10)
+
+    # 3. DIFFICULTÉ (Profondeur IA)
+    tk.Label(dialog, text="3. Difficulté de l'IA (Profondeur) :", font=("Arial", 11, "bold")).pack(pady=(15, 5))
+    
+    # Curseur de 1 à 6 (au-delà de 6, ça devient très lent sans optimisations avancées)
+    scale = tk.Scale(dialog, from_=1, to=8, orient=tk.HORIZONTAL, variable=var_depth, length=200, tickinterval=1)
+    scale.pack()
     
     def on_submit():
         dialog.destroy()
         
-    tk.Button(dialog, text="LANCER LA PARTIE", command=on_submit, 
-              bg="#BBCB2B", font=("Arial", 10, "bold"), width=20, height=2).pack(pady=20)
+    tk.Button(dialog, text="JOUER", command=on_submit, bg="#BBCB2B", font=("Arial", 10, "bold"), width=20).pack(pady=20)
     
     root.wait_window(dialog)
-    
-    return var_variant.get(), var_mode.get()
+    return var_variant.get(), var_mode.get(), var_depth.get()
 
 if __name__== "__main__":
     root = tk.Tk()
@@ -313,14 +319,14 @@ if __name__== "__main__":
         messagebox.showerror("Erreur critique", "Exécutable introuvable.\nVeuillez compiler le projet C++.")
         sys.exit(1)
 
-    variant_choice, mode_choice = ask_settings(root)
-    print(f"Lancement : Variante={variant_choice}, Mode={mode_choice}")
+    variant_choice, mode_choice, depth_choice = ask_settings(root)
+    print(f"Lancement : Variante={variant_choice}, Mode={mode_choice}, Profondeur={depth_choice}")
 
     ai_count = 0 if mode_choice == "pvp" else 1
 
     root.deiconify()
     
-    game = DisplayGame(root, variant_choice, final_path, nb_ai=ai_count)
+    game = DisplayGame(root, variant_choice, final_path, nb_ai=ai_count, depth=depth_choice)
     
     def on_closing():
         game.engine.close()

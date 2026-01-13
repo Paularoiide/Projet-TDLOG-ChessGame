@@ -9,7 +9,8 @@
 #include "ai.h"
 #include "player.h"
 
-// Display the board
+// --- UTILS ---
+
 void print_board_raw(const Board& b) {
     for (int rank = 7; rank >= 0; --rank) {
         for (int file = 0; file < 8; ++file) {
@@ -73,10 +74,100 @@ std::string indexToSquare(int sq) {
     return s;
 }
 
+// --- UCI PROTOCOL LOOP ---
+
+void uci_loop() {
+    Game game;
+    game.startGame(Variant::Classic);
+
+    // Default UCI depth
+    AI bot(new MaterialAndPositionEvaluation(), 5);
+
+    std::string line, token;
+
+    while (std::getline(std::cin, line)) {
+        std::stringstream ss(line);
+        ss >> token;
+
+        if (token == "uci") {
+            std::cout << "id name TDLOG_ChessEngine" << std::endl;
+            std::cout << "id author You" << std::endl;
+            std::cout << "uciok" << std::endl;
+        }
+        else if (token == "isready") {
+            std::cout << "readyok" << std::endl;
+        }
+        else if (token == "ucinewgame") {
+            game.startGame(Variant::Classic);
+        }
+        else if (token == "position") {
+            std::string posType;
+            ss >> posType;
+            if (posType == "startpos") {
+                game.startGame(Variant::Classic);
+            }
+
+            std::string movesKeyword;
+            while (ss >> movesKeyword) {
+                if (movesKeyword == "moves") {
+                    std::string moveStr;
+                    while (ss >> moveStr) {
+                        // Parse UCI move (e.g., "e2e4" or "a7a8q")
+                        if (moveStr.length() < 4) continue;
+
+                        int f = (moveStr[0] - 'a') + (moveStr[1] - '1') * 8;
+                        int t = (moveStr[2] - 'a') + (moveStr[3] - '1') * 8;
+                        PieceType p = PieceType::None;
+
+                        if (moveStr.length() > 4) {
+                            char promoChar = moveStr[4];
+                            if (promoChar == 'q') p = PieceType::Queen;
+                            else if (promoChar == 'r') p = PieceType::Rook;
+                            else if (promoChar == 'b') p = PieceType::Bishop;
+                            else if (promoChar == 'n') p = PieceType::Knight;
+                        }
+
+                        game.playMove(Move(f, t, p));
+                    }
+                    break;
+                }
+            }
+        }
+        else if (token == "go") {
+            Move best = bot.getBestMove(game.board(), game.currentTurn());
+            std::cout << "bestmove " << indexToSquare(best.from) << indexToSquare(best.to);
+            if (best.promotion != PieceType::None) {
+                char p = 'q';
+                if (best.promotion == PieceType::Rook) p = 'r';
+                else if (best.promotion == PieceType::Bishop) p = 'b';
+                else if (best.promotion == PieceType::Knight) p = 'n';
+                std::cout << p;
+            }
+            std::cout << std::endl;
+        }
+        else if (token == "quit") {
+            break;
+        }
+    }
+}
+
+// --- MAIN ---
+
 int main(int argc, char* argv[]) {
+    // 0. CHECK FOR UCI MODE
+    if (argc > 1) {
+        std::string arg1 = argv[1];
+        if (arg1 == "uci") {
+            uci_loop();
+            return 0;
+        }
+    }
+
     Variant selectedVariant = Variant::Classic;
     bool isPvP = false;
+    int searchDepth = 5;
 
+    // 1. VARIANT
     if (argc > 1) {
         std::string arg = argv[1];
         if (arg == "fairy") {
@@ -84,6 +175,7 @@ int main(int argc, char* argv[]) {
         }
     }
 
+    // 2. MODE
     if (argc > 2) {
         std::string mode = argv[2];
         if (mode == "pvp") {
@@ -91,11 +183,21 @@ int main(int argc, char* argv[]) {
         }
     }
 
+    // 3. DEPTH
+    if (argc > 3) {
+        try {
+            searchDepth = std::stoi(argv[3]);
+            if (searchDepth < 1) searchDepth = 1;
+            if (searchDepth > 10) searchDepth = 10;
+        } catch (...) {
+            searchDepth = 4;
+        }
+    }
+
     Game game;
     game.startGame(selectedVariant);
 
-    // choose depth here
-    AI bot(new MaterialAndPositionEvaluation(), 6);
+    AI bot(new MaterialAndPositionEvaluation(), searchDepth);
 
     print_board_raw(game.board());
 
@@ -133,7 +235,7 @@ int main(int argc, char* argv[]) {
         Move humanMove = parse_move_string(line);
         if (!game.playMove(humanMove)) {
             print_board_raw(game.board());
-            continue; 
+            continue;
         }
 
         print_board_raw(game.board());
