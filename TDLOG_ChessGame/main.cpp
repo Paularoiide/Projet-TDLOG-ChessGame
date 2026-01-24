@@ -51,14 +51,93 @@ std::string indexToSquare(int sq) {
 }
 
 
+int parseSquare(const std::string& s) {
+    if (s.size() < 2) return -1;
+    return (s[1] - '1') * 8 + (s[0] - 'a');
+}
+
+// --- BOUCLE UCI (Pour Arena) ---
+void uci_loop() {
+    Game game;
+    game.startGame(Variant::Classic);
+
+    AI bot(new MaterialAndPositionEvaluation(), 6);
+
+    std::string line, token;
+
+    while (std::getline(std::cin, line)) {
+        std::stringstream ss(line);
+        ss >> token;
+
+        if (token == "uci") {
+            std::cout << "id name TDLOG_Engine" << std::endl;
+            std::cout << "id author You" << std::endl;
+            std::cout << "uciok" << std::endl;
+        }
+        else if (token == "isready") {
+            std::cout << "readyok" << std::endl;
+        }
+        else if (token == "ucinewgame") {
+            game.startGame(Variant::Classic);
+        }
+        else if (token == "position") {
+            std::string sub;
+            ss >> sub;
+
+            if (sub == "startpos") {
+                game.startGame(Variant::Classic);
+                ss >> sub;
+            }
+
+            if (sub == "moves") {
+                std::string moveStr;
+                while (ss >> moveStr) {
+                    std::string fromStr = moveStr.substr(0, 2);
+                    std::string toStr = moveStr.substr(2, 2);
+
+                    int from = parseSquare(fromStr);
+                    int to = parseSquare(toStr);
+
+                    PieceType promo = PieceType::None;
+                    if (moveStr.length() > 4) {
+                        char p = moveStr[4];
+                        if (p == 'q') promo = PieceType::Queen;
+                        else if (p == 'r') promo = PieceType::Rook;
+                        else if (p == 'b') promo = PieceType::Bishop;
+                        else if (p == 'n') promo = PieceType::Knight;
+                    }
+
+                    game.playMove(Move(from, to, promo));
+                }
+            }
+        }
+        else if (token == "go") {
+            Move best = bot.getBestMove(game.board(), game.currentTurn());
+            std::cout << "bestmove " << indexToSquare(best.from) << indexToSquare(best.to);
+            if (best.promotion != PieceType::None) std::cout << "q";
+            std::cout << std::endl;
+        }
+        else if (token == "quit") {
+            break;
+        }
+    }
+}
+
+
 int main(int argc, char* argv[]) {
+
+
+    if (argc > 1 && std::string(argv[1]) == "uci") {
+        uci_loop();
+        return 0;
+    }
 
     Variant selectedVariant = Variant::Classic;
     std::string gamemode = "PvP";
     int depth[2] = {5, 5};
 
     if(argc>1){
-        if (argv[1]=="fairy"){
+        if (std::string(argv[1]) == "fairy"){
             selectedVariant = Variant::FairyChess;
         }
     }
@@ -78,126 +157,103 @@ int main(int argc, char* argv[]) {
     Game g;
     g.startGame(selectedVariant);
 
+    Player* players[2];
+
+    if(gamemode == "PvP"){
+        players[0] = new HumanPlayer();
+        players[1] = new HumanPlayer();
+    }
+    else if (gamemode == "PvAI") {
+        players[0] = new HumanPlayer();
+        players[1] = new AI(new MaterialAndPositionEvaluation(), depth[0]);
+    }
+    else {
+        players[0] = new AI(new MaterialAndPositionEvaluation(), depth[0]);
+        players[1] = new AI(new MaterialAndPositionEvaluation(), depth[1]);
+    }
+
     print_board_raw(g.board());
 
     std::string line;
-    Player* player1;
-    Player* player2;
-    Player* players[2] = {player1, player2};
-
-    if(gamemode == "PvP"){
-        *player1 = HumanPlayer();
-        *player2 = HumanPlayer();
-    }
-    else{
-        if(gamemode == "PvAI"){
-            *player1 = HumanPlayer();
-        }
-        if(line == "AIvAI"){
-            *player1 = AI(new MaterialAndPositionEvaluation(), depth[0]);
-        }
-        *player2 = AI(new MaterialAndPositionEvaluation(), depth[1]);
-
-    }
-
-
     int player = 0; 
     bool played = false;
 
-    while ((dynamic_cast<AI*>(players[player]))||(std::getline(std::cin, line))) {
-        Move* move;
-
-        if (dynamic_cast<AI*>(players[player])){
-            *move = players[player]->getBestMove(g.board(), g.currentTurn());
-            bool answer = g.playMove(*move);
-            GameState state = g.gameState();
-
-            if (answer){
-                played = true;
-                std::cout << "VAL" << std::endl;
-            }
-            else{
-                std::cout << "ILL" << std::endl;
-            }
-
-            print_board_raw(g.board());
-
-            if (state == GameState::Checkmate || state == GameState::Stalemate) {
-                std::cout << "END" << std::endl;
-                return 0;
-            }
+    while (true) {
+        GameState state = g.gameState();
+        if (state == GameState::Checkmate || state == GameState::Stalemate) {
+            std::cout << "END" << std::endl;
+            break; 
         }
-        
-        else{
 
-            if (line.length() >= 3 && line.substr(0, 3) == "QUI") {
-                std::cout << "END" << std::endl;
-                return 0;
-            } 
+        AI* bot = dynamic_cast<AI*>(players[player]);
+
+        if (bot) {
+            Move bestMove = bot->getBestMove(g.board(), g.currentTurn());
+            g.playMove(bestMove);
+            std::cout << "VAL" << std::endl;
+            print_board_raw(g.board());
+            player = (player + 1) % 2;
+        }
+        else {
+            if (!std::getline(std::cin, line)) break;
             if (line.empty()) continue;
 
-            auto parseSquare = [](const std::string& s) -> int {
-                if (s.size() < 2) return -1;
-                return (s[1] - '1') * 8 + (s[0] - 'a');
-            };
+            std::stringstream ss(line);
+            std::string cmd;
+            ss >> cmd;
 
-            if (line.length() >= 3 && line.substr(0, 3) == "POS") {
-                std::stringstream ss(line.substr(4));
-                std::string a;
-                ss >> a;
-                int from = parseSquare(a);
-                //Retourner les cases possibles TODO
+            if (cmd == "QUI") { 
+                std::cout << "END" << std::endl;
+                break;
             }
-
-            if (line.length() >= 3 && line.substr(0, 3) == "MOV") {
-                //joueur humain
-
-                std::stringstream ss(line.substr(4));
-                std::string a, b;
-                ss >> a >> b;
-
-                int from = parseSquare(a);
-                int to   = parseSquare(b);
-
-                *move = Move(from, to);
-            }
+            else if (cmd == "POS") {
+                std::string sqStr;
+                ss >> sqStr;
+                int reqSq = parseSquare(sqStr);
                 
-            bool answer = g.playMove(*move);
-            GameState state = g.gameState();
-
-            //Promotion
-            if (answer && state==GameState::Prom){
-                std::cout << "PRO" << std::endl;
-                print_board_raw(g.board());
-                while (std::getline(std::cin, line)){
-                    if (line.length() >= 3 && line.substr(0, 3) == "QUI") {
-                        std::cout << "END" << std::endl;
-                        return 0;
-                    }
-                    if (line.empty()) continue;
-                    if (line.substr(0, 3) == "PRO"){
-                        answer = g.prom(stoi(line.substr(4)));
-                        if (!answer) continue;
+                std::cout << "POS";
+                if (reqSq != -1) {
+                    std::vector<Move> moves = g.board().generateLegalMoves(g.currentTurn());
+                    for (const auto& m : moves) {
+                        if (m.from == reqSq) {
+                            std::cout << " " << indexToSquare(m.to);
+                        }
                     }
                 }
+                std::cout << std::endl;
             }
-            if (answer){
-                played = true;
-                std::cout << "VAL" << std::endl;
-            }
-            else{
-                std::cout << "ILL" << std::endl;
-            }
-            print_board_raw(g.board());
+            else if (cmd == "MOV") {
+                std::string sFrom, sTo, sPromo;
+                ss >> sFrom >> sTo >> sPromo;
+                
+                int f = parseSquare(sFrom);
+                int t = parseSquare(sTo);
+                PieceType p = PieceType::None;
+                
+                if (!sPromo.empty()) {
+                    char c = tolower(sPromo[0]);
+                    if (c == 'q') p = PieceType::Queen;
+                    else if (c == 'r') p = PieceType::Rook;
+                    else if (c == 'b') p = PieceType::Bishop;
+                    else if (c == 'n') p = PieceType::Knight;
+                }
 
-            if (state == GameState::Checkmate || state == GameState::Stalemate) {
-                std::cout << "END" << std::endl;
-                return 0;
+                Move m(f, t, p);
+                
+                if (g.playMove(m)) {
+                    std::cout << "VAL" << std::endl;
+                    print_board_raw(g.board());
+                    player = (player + 1) % 2;
+                } else {
+                    std::cout << "ILL" << std::endl;
+                    print_board_raw(g.board());
+                }
             }
-        }
-        if (played){
-            player = (player+1)%2;
         }
     }
+
+    delete players[0];
+    delete players[1];
+
     return 0;
 }

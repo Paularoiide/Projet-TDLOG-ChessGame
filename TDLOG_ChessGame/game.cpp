@@ -11,29 +11,6 @@ Game::Game() : board_(), currentTurn_(Color::White) {
 void Game::startGame(Variant v) {
     board_ = Board(v); // On passe la variante au constructeur du Board
     currentTurn_ = Color::White;
-    promPos = -1;
-}
-
-void Game::endTurn() {
-    currentTurn_ = opposite(currentTurn_);
-
-    // 4. Update state (Checkmate/Stalemate logic)
-    std::vector<Move> nextMoves = board_.generateLegalMoves(currentTurn_);
-    bool inCheck = board_.isInCheck(currentTurn_);
-
-    if (nextMoves.empty()) {
-        if (inCheck) {
-            state_ = GameState::Checkmate; 
-        } else {
-            state_ = GameState::Stalemate; 
-        }
-    } else {
-        if (inCheck) {
-            state_ = GameState::Check;
-        } else {
-            state_ = GameState::Playing;
-        }
-    }
 }
 
 bool Game::playMove(const Move& moveReq) {
@@ -48,37 +25,31 @@ bool Game::playMove(const Move& moveReq) {
             break;
         }
     }
-    
+
     if (!found) return false;
 
     // 3. Play the move
-    if (board_.movePiece(moveReq.from, moveReq.to, moveReq.promotion)){
-        state_ = GameState::Prom;
-        promPos = moveReq.to;
-    }
-    else{
-        endTurn();
+    board_.movePiece(moveReq.from, moveReq.to, moveReq.promotion);
+
+    currentTurn_ = opposite(currentTurn_);
+
+    // 4. Update state (Checkmate/Stalemate logic)
+    std::vector<Move> nextMoves = board_.generateLegalMoves(currentTurn_);
+    bool inCheck = board_.isInCheck(currentTurn_);
+
+    if (nextMoves.empty()) {
+        if (inCheck) {
+            state_ = GameState::Checkmate;
+        } else {
+            state_ = GameState::Stalemate;
+        }
+    } else {
+        if (inCheck) {
+            state_ = GameState::Check;
+        } else {
+            state_ = GameState::Playing;
+        }
     }
 
     return true;
-}
-
-bool Game::prom(int choice){
-    if ((0<=choice)&&(choice<=3)){
-        PieceType pt;
-        switch(choice){
-            case 0: pt=PieceType::Knight;
-            case 1: pt=PieceType::Bishop;
-            case 2: pt=PieceType::Rook;
-            case 3: pt=PieceType::Queen;
-            default: pt=PieceType::None;
-        }
-        if (pt!=PieceType::None && promPos!=(-1) && board_.doProm(promPos, pt)){
-            promPos = -1;
-            state_ = GameState::Playing; //probablement inutil
-            endTurn();
-            return true;
-        }
-    }
-    return false;
 }

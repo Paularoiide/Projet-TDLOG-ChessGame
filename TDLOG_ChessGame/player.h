@@ -6,7 +6,6 @@ class Player {
 public:
     virtual Move getMove(Game& g) = 0;
     virtual ~Player() = default;
-    virtual Move getBestMove(const Board& board, Color turn);
 };
 
 // -------------------------

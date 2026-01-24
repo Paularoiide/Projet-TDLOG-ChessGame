@@ -2,8 +2,19 @@
 #include <cstring> // for std::memset
 #include <cmath>   // for std::abs
 #include <vector>
+#include <random> // for Zobrist hashing
+
+// --- ZOBRIST KEYS (Static) ---
+// We store random numbers for [Color][Piece][Square]
+static uint64_t zPieceKeys[2][6][64];
+static uint64_t zEnPassantKeys[65]; // 64 squares + 1 (none)
+static uint64_t zCastleKeys[16];    // 4 rights (bitmask 0-15)
+static uint64_t zSideKey;           // For the turn (Black)
+// Flag to check if initialized
+static bool zInitialized = false;
 
 Board::Board(Variant v) {
+    initZobristKeys();
     // 1. Reset everything to 0
     std::memset(bitboards_, 0, sizeof(bitboards_));
     std::memset(occupancies_, 0, sizeof(occupancies_));
@@ -77,6 +88,7 @@ Board::Board(Variant v) {
     castleRights_[2] = castleRights_[3] = true;
 
     enPassantTarget_ = -1;
+    zobristKey_ = calculateHash();
 }
 
 // =======================
@@ -108,7 +120,7 @@ PieceType Board::getPieceTypeAt(int square, Color& color) const {
     return PieceType::None;
 }
 
-bool Board::movePiece(int from, int to, PieceType promotion) {
+void Board::movePiece(int from, int to, PieceType promotion) {
     Color color;
     PieceType pt = getPieceTypeAt(from, color);
     if (pt == PieceType::None) return;
@@ -168,7 +180,7 @@ bool Board::movePiece(int from, int to, PieceType promotion) {
     }
     enPassantTarget_ = nextEnPassantTarget;
 
-    // 7. Move the piece (with optional promotion, for AI)
+    // 7. Move the piece (with optional promotion)
     popBit(bitboards_[static_cast<int>(color)][static_cast<int>(pt)], from);
     if (promotion != PieceType::None) {
         setBit(bitboards_[static_cast<int>(color)][static_cast<int>(promotion)], to);
@@ -177,23 +189,7 @@ bool Board::movePiece(int from, int to, PieceType promotion) {
     }
 
     updateOccupancies();
-
-    return (pt == PieceType::Pawn && (to/8==0 || to/8==7));
-}
-
-bool Board::doProm(int pos, PieceType promotion) {
-    Color color;
-    PieceType pt = getPieceTypeAt(pos, color);
-    if (pt!=PieceType::Pawn) return false;
-    if ((promotion == PieceType::Queen) 
-        || (promotion == PieceType::Rook)
-        || (promotion == PieceType::Knight)
-        || (promotion == PieceType::Bishop)) {
-        popBit(bitboards_[static_cast<int>(color)][static_cast<int>(pt)], pos);
-        setBit(bitboards_[static_cast<int>(color)][static_cast<int>(promotion)], pos);
-        return true;
-    }
-    return false;
+    zobristKey_ = calculateHash();
 }
 
 // =======================
@@ -408,7 +404,7 @@ std::vector<Move> Board::generateLegalMoves(Color turn) const {
     // A. PRINCESSE (Princess / Archbishop) = Fou + Cavalier
     // On génère les mouvements de Fou (Sliding) + les sauts de Cavalier
     generateSlidingMoves(PieceType::Princess, bishopDirs, 4);
-    
+
     Bitboard princesses = bitboards_[c][static_cast<int>(PieceType::Princess)];
     for (int sq = 0; sq < 64; ++sq) {
         if (!getBit(princesses, sq)) continue;
@@ -452,14 +448,14 @@ std::vector<Move> Board::generateLegalMoves(Color turn) const {
     Bitboard nightriders = bitboards_[c][static_cast<int>(PieceType::Nightrider)];
     for (int sq = 0; sq < 64; ++sq) {
         if (!getBit(nightriders, sq)) continue;
-        
+
         // Pour chaque direction de cavalier
         for (int offset : knightOffsets) {
             int curSq = sq;
             while (true) {
                 int prevX = curSq % 8;
                 int nextSq = curSq + offset;
-                
+
                 // Vérifications de sortie de plateau
                 if (nextSq < 0 || nextSq >= 64) break;
                 // Vérification de wrapping (colonnes a-h) : un saut de cavalier change de file de 1 ou 2 max
@@ -476,7 +472,7 @@ std::vector<Move> Board::generateLegalMoves(Color turn) const {
                     break; // Capture arrête le mouvement
                 }
                 moves.push_back(m);
-                
+
                 // Si la case était vide, on continue dans la même direction (bond suivant)
                 curSq = nextSq;
             }
@@ -488,7 +484,7 @@ std::vector<Move> Board::generateLegalMoves(Color turn) const {
     // et atterrir sur la case juste derrière.
     Bitboard grasshoppers = bitboards_[c][static_cast<int>(PieceType::Grasshopper)];
     const int allDirs[] = {-9, -8, -7, -1, 1, 7, 8, 9};
-    
+
     for (int sq = 0; sq < 64; ++sq) {
         if (!getBit(grasshoppers, sq)) continue;
         int x = sq % 8;
@@ -496,9 +492,9 @@ std::vector<Move> Board::generateLegalMoves(Color turn) const {
 
         for (int offset : allDirs) {
             int curSq = sq;
-            int curX = x; 
+            int curX = x;
             int curY = y;
-            
+
             // Calcul des pas X/Y pour vérifier les bords proprement
             int stepX = 0, stepY = 0;
             if (offset == -1 || offset == -9 || offset == 7) stepX = -1;
@@ -572,7 +568,7 @@ std::vector<Move> Board::generateCaptures(Color turn) const {
 
     for (int sq = 0; sq < 64; ++sq) {
         if (!getBit(pawns, sq)) continue;
-        
+
         int r = sq / 8;
         int file = sq % 8;
 
@@ -582,7 +578,7 @@ std::vector<Move> Board::generateCaptures(Color turn) const {
             // If we are on file A (0) and move left -> invalid
             // If we are on file H (7) and move right -> invalid
             int targetFile = target % 8;
-            if (std::abs(targetFile - file) > 1) continue; 
+            if (std::abs(targetFile - file) > 1) continue;
             if (target < 0 || target >= 64) continue;
 
             bool isEnemy = getBit(them, target);
@@ -607,7 +603,7 @@ std::vector<Move> Board::generateCaptures(Color turn) const {
     while (knights) {
         int sq = __builtin_ctzll(knights); // Bitboard optimization
         knights &= (knights - 1);
-        
+
         int x = sq % 8;
         for (int offset : kOffsets) {
             int target = sq + offset;
@@ -649,8 +645,8 @@ std::vector<Move> Board::generateCaptures(Color turn) const {
         while (pieces) {
             int sq = __builtin_ctzll(pieces);
             pieces &= (pieces - 1);
-            
-            int x = sq % 8; 
+
+            int x = sq % 8;
             int y = sq / 8;
 
             for (int d = 0; d < numDirs; ++d) {
@@ -662,13 +658,13 @@ std::vector<Move> Board::generateCaptures(Color turn) const {
                 else if (step == -9) {dx=-1;dy=-1;} else if (step == -7) {dx=1;dy=-1;}
                 else if (step == 7) {dx=-1;dy=1;} else if (step == 9) {dx=1;dy=1;}
 
-                int curX = x; 
+                int curX = x;
                 int curY = y;
-                
+
                 while (true) {
                     curX += dx; curY += dy;
                     if (curX < 0 || curX > 7 || curY < 0 || curY > 7) break;
-                    
+
                     int curSq = curY * 8 + curX;
 
                     if (getBit(us, curSq)) break; // Blocked by ally
@@ -678,7 +674,7 @@ std::vector<Move> Board::generateCaptures(Color turn) const {
                         Move m(sq, curSq);
                         m.isCapture = true;
                         moves.push_back(m);
-                        break; 
+                        break;
                     }
                     // If the square is empty, we continue sliding, BUT we do not add the move
                 }
@@ -813,10 +809,10 @@ bool Board::isSquareAttacked(int square, Color attacker) const {
     }
 
     // 7. Princess (Composante Fou) & Empress (Composante Tour)
-    // On réutilise la logique de rayon. 
+    // On réutilise la logique de rayon.
     // Note: Dans ton code existant (étape 4 et 5), tu vérifies déjà Rooks/Queens et Bishops/Queens.
     // Il suffit d'ajouter Empress aux checks orthogonaux et Princess aux checks diagonaux.
-    
+
     // A. Mise à jour check Orthogonal (pour Impératrice)
     for (int step : orthoDirs) {
         int curr = square;
@@ -857,7 +853,7 @@ bool Board::isSquareAttacked(int square, Color attacker) const {
         while (true) {
             int prevX = curSq % 8;
             int nextSq = curSq + offset; // On remonte le rayon vers l'attaquant potentiel
-            
+
             if (nextSq < 0 || nextSq >= 64) break;
             if (std::abs((nextSq % 8) - prevX) > 2) break;
 
@@ -923,4 +919,60 @@ bool Board::canCastle(Color c, bool kingSide) const {
 void Board::disableCastle(Color c, bool kingSide) {
     if (c == Color::White) castleRights_[kingSide ? 0 : 1] = false;
     else                   castleRights_[kingSide ? 2 : 3] = false;
+}
+
+// =======================
+//   ZOBRIST IMPLEMENTATION
+// =======================
+void Board::initZobristKeys() {
+    if (zInitialized) return;
+
+    // 64-bit random number generator (Mersenne Twister)
+    std::mt19937_64 rng(123456789);
+
+    for (int c = 0; c < 2; ++c) {
+        for (int p = 0; p < 6; ++p) {
+            for (int sq = 0; sq < 64; ++sq) {
+                zPieceKeys[c][p][sq] = rng();
+            }
+        }
+    }
+    for (int sq = 0; sq < 65; ++sq) zEnPassantKeys[sq] = rng();
+    for (int k = 0; k < 16; ++k) zCastleKeys[k] = rng();
+    zSideKey = rng();
+
+    zInitialized = true;
+}
+
+// Optimized function to calculate the hash (uses bitboards as evaluate)
+uint64_t Board::calculateHash() const {
+    uint64_t hash = 0;
+
+    // 1. Pieces
+    for (int c = 0; c < 2; ++c) {
+        for (int p = 0; p < 6; ++p) {
+            Bitboard bb = bitboards_[c][p];
+            while (bb) {
+                int sq = __builtin_ctzll(bb);
+                hash ^= zPieceKeys[c][p][sq];
+                bb &= (bb - 1);
+            }
+        }
+    }
+
+    // 2. En Passant
+    if (enPassantTarget_ != -1) {
+        hash ^= zEnPassantKeys[enPassantTarget_];
+    }
+
+    // 3. Castling
+    // Construct an index 0-15 based on the 4 booleans
+    int castleMask = 0;
+    if (castleRights_[0]) castleMask |= 1; // WK
+    if (castleRights_[1]) castleMask |= 2; // WQ
+    if (castleRights_[2]) castleMask |= 4; // BK
+    if (castleRights_[3]) castleMask |= 8; // BQ
+    hash ^= zCastleKeys[castleMask];
+
+    return hash;
 }

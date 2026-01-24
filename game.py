@@ -42,14 +42,17 @@ class Engine():
 
         if nb_ai == 1:
             mode_arg = "PvAI"
+            cmd.append(mode_arg)
             cmd.append(str(ai_depth[0]))
         elif nb_ai == 2:
             mode_arg = "AIvAI"
+            cmd.append(mode_arg)
+            cmd.append(str(ai_depth[0]))
             cmd.append(str(ai_depth[1]))
         else:
             mode_arg = "PvP"
-        
-        cmd.insert(2, mode_arg)        
+            cmd.append(mode_arg)
+                
         
         try:
             self.process = subprocess.Popen(
@@ -76,51 +79,47 @@ class Engine():
                     self.process.stdin.flush()
                 except BrokenPipeError:
                     print("Erreur : Le moteur C++ s'est arrêté.")
-                    return []
+                    return "ERR", []
             return self.read_board()
-        return []
+        return "ERR", []
             
     def close(self):
         if self.process:
             self.process.terminate()
 
     def read_board(self):
-        """Lit le prefix et les 8 lignes valides depuis le C++."""
-        
-        prefix = self.process.stdout.readline()
-        if not prefix: 
-            print("Erreur : Le moteur C++ s'est arrêté.")
-            return None, []
-        prefix = prefix.strip()
-        if not prefix:
-            return None, []
-
-
-        if prefix=="PRO":
+        """Lit la réponse du C++."""
+        try:
+            prefix = self.process.stdout.readline()
+            if not prefix: return "END", []
             
-            return "PRO", []
-        
-        elif prefix=="ERR":
+            prefix = prefix.strip()
+            if prefix.startswith("POS"):
+                parts = prefix.split()
+                return "POS", parts[1:]
+            elif prefix == "PRO":
+                return "PRO", []
+
+            elif prefix in ["VAL", "ILL"]:
+                lines = []
+                while len(lines) < 8:
+                    line = self.process.stdout.readline()
+                    if not line: break 
+                    stripped = line.strip()
+                    if not stripped: continue
+                    lines.append(stripped)
+                return prefix, lines
+            
+            elif prefix == "END":
+                return "END", []
+            
+            else:
+                print(f"DEBUG: Reçu inconnu '{prefix}'")
+                return "UNK", []
+                
+        except Exception as e:
+            print(f"Erreur lecture : {e}")
             return "ERR", []
-        
-        elif prefix=="POS":
-            return "POS", self.process.stdout.readline().split()
-        
-        elif prefix=="VAL" or prefix=="ILL":
-            lines = []
-            while len(lines) < 8:
-                line = self.process.stdout.readline()
-                if not line: break # Fin du flux (EOF)
-                stripped = line.strip()
-                if not stripped: continue # Ignore les lignes vides
-                lines.append(stripped)
-            return prefix, lines
-        
-        elif prefix=="END":
-            return "END", []
-        
-        else :
-            print("Unrecognized prefix : " + prefix)
 
 # --- LOGIQUE UI ---
 class Move():
@@ -129,7 +128,7 @@ class Move():
         self.game = game_instance 
         self.selected = None
         self.highlighted = None
-        self.suggestion_rects = [] # Stocke les carrés jaunes
+        self.suggestion_rects = []
         self.canvas.bind("<Button-1>", self.click)
 
     def highlight(self, col, row):
@@ -139,9 +138,9 @@ class Move():
         y1 = y0 + SQUARE_SIZE
         self.highlighted = self.canvas.create_rectangle(x0, y0, x1, y1, outline=COLORS[-1], width=4)
 
-    def show_suggestions(self, moves_str):
-        squares = moves_str.split()
-        for sq in squares:
+    def show_suggestions(self, moves):
+        self.clear_suggestions()
+        for sq in moves:
             if len(sq) < 2: continue
             col = ord(sq[0]) - ord('a')
             row = 8 - int(sq[1])
@@ -161,22 +160,24 @@ class Move():
 
     def click(self, event):
         col, row = event.x // SQUARE_SIZE, event.y // SQUARE_SIZE
+        if not (0 <= col < 8 and 0 <= row < 8): return
         pos = f"{chr(col + ord('a'))}{8 - row}"
+        target_piece = self.game.board[pos]
         
         if self.selected is None:
-            piece = self.game.board[pos]
-            if not piece: return
+            if not target_piece: return
+            self.select_piece(pos, col, row)
 
-            self.selected = pos
-            self.highlight(col, row)
-            
-            response = self.game.engine.send_request(f"POS {pos}")
-            if response:
-                self.show_suggestions(response)
-        
         else:
-            self.clear_suggestions()
+            source_piece = self.game.board[self.selected]
+            if target_piece and source_piece:
+                if source_piece.isupper() == target_piece.isupper():
+                    self.clear_suggestions()
+                    if self.highlighted: self.canvas.delete(self.highlighted)
+                    self.select_piece(pos, col, row)
+                    return
 
+            self.clear_suggestions()
             if self.selected != pos:
                 self.game.submit_move(self.selected, pos)
             
@@ -184,6 +185,14 @@ class Move():
             if self.highlighted:
                 self.canvas.delete(self.highlighted)
             self.highlighted = None
+
+    def select_piece(self, pos, col, row):
+        """Helper pour sélectionner proprement"""
+        self.selected = pos
+        self.highlight(col, row)
+        response = self.game.engine.send_request(f"POS {pos}")
+        if response and response[0] == "POS":
+            self.show_suggestions(response[1])
 
 class Board():
     def __init__(self, var: Variante = Variante.CLASSIC):
@@ -198,10 +207,7 @@ class Board():
         piece = self.board[row][col] 
         return None if piece == "-" else piece
 
-    def update(self, board_output: list):
-        if len(board_output) != 8:
-            print(f"DEBUG: Reçu {len(board_output)} lignes au lieu de 8. Ignoré.")
-            return 
+    def update(self, board_output: list): 
         new_board = []
         for line in board_output:
             parts = line.split()
@@ -236,10 +242,19 @@ class DisplayGame():
                 img = img.subsample(2, 2)
                 self.piece_images[piece] = img
 
+        initial_board = []
+        try:
+            for _ in range(8):
+                line = self.engine.process.stdout.readline().strip()
+                if line: initial_board.append(line)
+        except:
+            pass
+        
+        self.board.update(initial_board)
+        self.draw_board()
+
         if self.gamemode == "AIvAI":
             self.play_AIvAI()
-        else :
-            self.act(self.engine.read_board())
 
 
     def draw_board(self):
@@ -258,36 +273,113 @@ class DisplayGame():
                     self.canvas.create_image(x0 + SQUARE_SIZE//2, y0 + SQUARE_SIZE//2, anchor=tk.CENTER, image=self.piece_images[piece])
 
     def wait_prom(self, pos):
-        #TODO, commence par rafraichir le plateau
-        pass
+        """Affiche une popup graphique avec des images sur la case cible."""
+        
+        # 1. Calcul de la position de la case cible à l'écran
+        col = ord(pos[0]) - ord('a')
+        row = 8 - int(pos[1]) # 0 en haut, 7 en bas
+        
+        # Coordonnées globales de la fenêtre principale + offset de la case
+        # On ajoute un petit ajustement pour centrer la popup (largeur estimée ~200px)
+        # SQUARE_SIZE est 600 // 8 = 75
+        popup_width = 4 * 60  # 4 boutons d'environ 60px
+        popup_height = 60
+        
+        # Position X : Racine X + Case X - (Moitié popup) + (Moitié Case)
+        screen_x = self.root.winfo_rootx() + (col * SQUARE_SIZE) - (popup_width // 2) + (SQUARE_SIZE // 2)
+        screen_y = self.root.winfo_rooty() + (row * SQUARE_SIZE)
+        
+        # Si on est tout en haut (Blancs), on affiche la popup un peu plus bas pour pas sortir de l'écran
+        if row == 0: screen_y += 10
+        # Si on est tout en bas (Noirs), on affiche un peu plus haut
+        else: screen_y -= popup_height
+
+        # 2. Création de la fenêtre
+        top = tk.Toplevel(self.root)
+        top.geometry(f"+{int(screen_x)}+{int(screen_y)}")
+        top.overrideredirect(True) # Enlève la barre de titre (style popup moderne)
+        top.attributes("-topmost", True) # Toujours au premier plan
+        
+        # Variable pour le résultat (par défaut reine 'q')
+        choice_var = tk.StringVar(value="q")
+
+        def select(code):
+            choice_var.set(code)
+            top.destroy()
+        
+        # 3. Choix des images (Blanches ou Noires ?)
+        # Si pos fini par '8', c'est les blancs qui promeuvent
+        is_white = (pos[1] == '8')
+        
+        # Liste des choix : (Code C++, Clé Image)
+        options = [
+            ("q", "Q" if is_white else "q"),
+            ("r", "R" if is_white else "r"),
+            ("b", "B" if is_white else "b"),
+            ("n", "N" if is_white else "n")
+        ]
+
+        # 4. Création des boutons avec images
+        for code, img_key in options:
+            if img_key in self.piece_images:
+                img = self.piece_images[img_key]
+                btn = tk.Button(top, image=img, command=lambda c=code: select(c), 
+                                bg="#f0f0f0", activebackground="#BBCB2B", bd=1)
+                btn.pack(side=tk.LEFT, padx=2, pady=2)
+            else:
+                # Fallback texte si image manquante
+                tk.Button(top, text=code.upper(), command=lambda c=code: select(c)).pack(side=tk.LEFT)
+
+        # 5. Attente bloquante
+        top.grab_set() 
+        self.root.wait_window(top)
+        
+        return choice_var.get()
 
     def submit_move(self, pos1, pos2):
         piece = self.board[pos1]
         if not piece: return
 
-        cmd = f"MOV {pos1} {pos2}"
-        if self.ask_engine(cmd) == "PRO":
-            self.wait_prom(pos2)
+        is_pawn = (piece.lower() == 'p')
+        is_last_rank = (pos2[1] == '1' or pos2[1] == '8')
+        
+        promo_suffix = ""
+        
+        if is_pawn and is_last_rank:
+            promo_suffix = self.wait_prom(pos2)
+            if not promo_suffix: promo_suffix = " q"
 
-        if self.gamemode == "PvAI":
-            self.draw_board()
-            self.ask_engine(None)
+        cmd = f"MOV {pos1} {pos2} {promo_suffix}"
+        prefix, data = self.ask_engine(cmd)
+        
+        if prefix == "VAL" and self.gamemode == "PvAI":
+            self.root.update()
+            self.root.after(50, self.trigger_ai_turn)
+
+    def trigger_ai_turn(self):
+        prefix, data = self.engine.read_board()
+        if prefix == "VAL":
+            self.act(data)
+        elif prefix == "END":
+            messagebox.showinfo("Fin de partie", "Partie terminée !")
 
     def ask_engine(self, command=None):
-        ans = self.engine.send_request(command)
-
-        if ans: self.act(ans)
-        return ans[0] #return the prefix
+        prefix, data = self.engine.send_request(command)
+        if prefix in ["VAL", "ILL"] and data:
+            self.act(data)
+        return prefix, data
 
     def act(self, answer: list):
         self.board.update(answer)
         self.draw_board()
 
     def play_AIvAI(self):
-        self.act(self.engine.read_board())
-        while(True):
-            if self.ask_engine(None)=="END":
-                break
+        prefix, data = self.engine.read_board() 
+        if prefix == "VAL":
+            self.act(data)
+            self.root.after(100, self.play_AIvAI)
+        elif prefix == "END":
+            print("Fin de partie AI vs AI")
 
 
 
@@ -324,8 +416,8 @@ def ask_settings(root):
     
     frame_mode = tk.Frame(dialog)
     frame_mode.pack()
-    tk.Radiobutton(frame_mode, text="Joueur vs Joueur (PvP)", variable=var_mode, value="pvp").pack(side=tk.LEFT, padx=10)
-    tk.Radiobutton(frame_mode, text="Joueur vs IA (PvE)", variable=var_mode, value="pve").pack(side=tk.LEFT, padx=10)
+    tk.Radiobutton(frame_mode, text="Joueur vs Joueur (PvP)", variable=var_mode, value="PvP").pack(side=tk.LEFT, padx=10)
+    tk.Radiobutton(frame_mode, text="Joueur vs IA (PvE)", variable=var_mode, value="PvAI").pack(side=tk.LEFT, padx=10)
     
     def on_submit():
         dialog.destroy()

@@ -37,11 +37,6 @@ Move HumanPlayer::getMove(Game& g) {
 
     ss >> promoWord;
 
-    auto parse = [](const std::string& s) -> int {
-        if (s.size() < 2) return -1;
-        return (s[1] - '1') * 8 + (s[0] - 'a');
-    };
-
     int from = parse(a);
     int to = parse(b);
 
