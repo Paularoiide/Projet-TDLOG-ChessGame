@@ -175,8 +175,7 @@ bool AI::probeTT(uint64_t key, int depth, int alpha, int beta, int& score, Move&
 
         // On n'utilise le résultat que si la profondeur stockée est suffisante
         if (entry.depth >= depth) {
-            // Évite d'utiliser des valeurs de mat “bizarres” venant d’ailleurs
-            if (std::abs(entry.score) > MATE_VALUE - 100) return false;
+            
 
             if (entry.flag == TTFlag::EXACT) {
                 score = entry.score;
@@ -263,58 +262,52 @@ int AI::negamax(const Board& board, int depth, int alpha, int beta, int colorMul
 }
 
 
-// 5) RECHERCHE À LA RACINE
+// 5) RECHERCHE À LA RACINE (LAZY SMP)
 
 Move AI::getBestMove(const Board& board, Color turn) {
-    std::vector<Move> moves = board.generateLegalMoves(turn);
-    if (moves.empty()) return Move(0, 0);
+   //1. Configuration
+   int colorMultiplier = (turn == Color::White) ? 1 : -1;
+   uint64_t rootHash = board.getHash();
+   if (turn  == Color::Black) {rootHash = ~rootHash;}
+   // Limitation sur le nombre de threads
+   int numThreads = std::thread::hardware_concurrency();
+   if (numThreads < 1) numThreads = 1;
 
-    // On essaie de récupérer un coup TT pour le tester en premier
-    uint64_t hash = board.getHash();
-    if (turn == Color::Black) hash = ~hash;
-
-    int ttScore;
-    Move ttMove(0,0);
-    probeTT(hash, searchDepth, -INF, INF, ttScore, ttMove);
-
-    std::sort(moves.begin(), moves.end(), [&](const Move& a, const Move& b) {
-        if (ttMove.from != 0) {
-            if (a.from == ttMove.from && a.to == ttMove.to) return true;
-            if (b.from == ttMove.from && b.to == ttMove.to) return false;
-        }
-        return a.isCapture > b.isCapture;
-    });
-
-    struct MoveResult { int score; Move move; };
-    std::vector<std::future<MoveResult>> futures;
-    int colorMultiplier = (turn == Color::White) ? 1 : -1;
-
-    // Ici : un async par coup
-    for (const auto& move : moves) {
-        futures.push_back(std::async(std::launch::async, [=, &board]() -> MoveResult {
-            Board threadBoard = board;
-            threadBoard.movePiece(move.from, move.to, move.promotion);
-
-            int score = -negamax(threadBoard, this->searchDepth - 1, -INF, INF, -colorMultiplier);
-            return {score, move};
-        }));
+   // vecteur pour stocker les taches
+   std::vector<std::future<void>> futures;
+   //2. Définition de la tache d'un thread
+   auto searchWorker = [&](int threadID) {
+    // Chaque thread a sa propre copie de la board
+    Board threadBoard = board;
+    // Iterative deepening
+    // Permet au thread de faire une recherche partielle pour remplir la TT
+    // ce qui permet aux autres threads d'elager plus efficacement
+    for (int depth = 1; depth <= searchDepth; ++depth) {
+        negamax(threadBoard, depth, -INF, INF, colorMultiplier);
     }
-
-    Move bestMove = moves[0];
-    int maxScore = -INF;
-
-    for (auto& f : futures) {
-        MoveResult res = f.get();
-        if (res.score > maxScore) {
-            maxScore = res.score;
-            bestMove = res.move;
-        }
+    };
+   //3. Lancement des threads secondaires
+   // On lance (N-1) threads, le main thread fait aussi une recherche
+   for(int i = 1; i < numThreads;i++){
+        futures.push_back(std::async(std::launch::async, searchWorker, i));
+   }
+   //4. Recherche principale dans le thread principal
+    searchWorker(0);
+   //5 Synchronisation des threads
+   for(auto& f : futures){
+        f.get();
+   }
+   //6. Récupération du meilleur coup depuis la TT
+   int BestScore;
+   Move BestMove(0,0);
+   if (probeTT(rootHash, this -> searchDepth, -INF, INF, BestScore, BestMove)){
+        return BestMove;
     }
-
-    // On mémorise aussi le résultat à la racine
-    storeTT(hash, maxScore, searchDepth, -INF, INF, bestMove);
-
-    return bestMove;
+    // Si pas trouvé, on retourne un coup aléatoire (devrait pas arriver)
+    std::vector<Move> legalMoves = board.generateLegalMoves(turn);
+    if (!legalMoves.empty()) {
+        return legalMoves[0];
+    }
 }
 
 
