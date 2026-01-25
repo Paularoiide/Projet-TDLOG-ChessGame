@@ -1,0 +1,12 @@
+# ninja log v7
+39	129	7910717200371974	CMakeFiles/TDLOG_ChessGame.dir/variants.cpp.obj	20947ee2dbc4091a
+28	563	7910717200255342	CMakeFiles/TDLOG_ChessGame.dir/move.cpp.obj	67c58b65b49028e4
+26	766	7910718713951363	CMakeFiles/TDLOG_ChessGame.dir/game.cpp.obj	6f9e2bc87299e1f6
+32	785	7910718714011640	CMakeFiles/TDLOG_ChessGame.dir/player.cpp.obj	a620b4b5c1e848d6
+35	928	7910719790821991	CMakeFiles/TDLOG_ChessGame.dir/player.cpp.obj	a620b4b5c1e848d6
+29	973	7910719790761604	CMakeFiles/TDLOG_ChessGame.dir/game.cpp.obj	6f9e2bc87299e1f6
+10	1132	7910719790564560	CMakeFiles/TDLOG_ChessGame.dir/main.cpp.obj	4d64261006f13f62
+40	1015	7910721081385318	CMakeFiles/TDLOG_ChessGame.dir/board.cpp.obj	4a269770c890c32c
+45	1109	7910722893860057	CMakeFiles/TDLOG_ChessGame.dir/board.cpp.obj	4a269770c890c32c
+36	2311	7910722893775602	CMakeFiles/TDLOG_ChessGame.dir/ai.cpp.obj	437b2178cdf3fcec
+2312	4076	7910722916522533	TDLOG_ChessGame.exe	27acc7aa7d5b688d

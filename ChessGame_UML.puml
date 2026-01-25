@@ -1,4 +1,4 @@
-@startuml
+@startuml ChessGames_UML
 title UML diagram for the ChessGames Project
 
 package "Base_Game" {
@@ -17,13 +17,15 @@ class Board{
 - int size
 - Square[size][size] squares
 + getPiece(pos : Position)
-+ movePiece(from: Position, to: Position)
-+ isInside(pos: Position): bool
++ movePiece(m: Move)
++ hasPiece(pos: Position): bool
 }
 
 class Square{
 - Position position
 - Piece* piece
++ getPiece(pos: Position)
++ setPiece(pos: Position)
 }
 
 abstract class Piece {
