@@ -4,7 +4,7 @@
 #include <vector>
 #include <iostream>
 #include <future>
-
+#include <random>
 
 // 1) TABLES DE POSITION (Piece-Square Tables)
 
@@ -297,17 +297,52 @@ Move AI::getBestMove(const Board& board, Color turn) {
    for(auto& f : futures){
         f.get();
    }
-   //6. Récupération du meilleur coup depuis la TT
-   int BestScore;
-   Move BestMove(0,0);
-   if (probeTT(rootHash, this -> searchDepth, -INF, INF, BestScore, BestMove)){
-        return BestMove;
+   //6. Récupération des scores des coups depuis la TT
+   std::vector<Move> moves = board.generateLegalMoves(turn);
+   if (moves.empty()) {
+       return Move(0,0); // Pas de coup possible
+   }
+   struct ScoredMove {
+         Move move;
+         int score;
+   };
+   std::vector<std::future<ScoredMove>> scoreFutures;
+   for (const auto& move : moves) {
+    scoreFutures.push_back(std::async(std::launch::async, [=, &board]() -> ScoredMove {
+        Board nextBoard = board;
+        nextBoard.movePiece(move.from, move.to, move.promotion);
+        int score = -negamax(nextBoard, searchDepth -1, -INF, INF, -colorMultiplier);
+        return {move, score};
+    }));
     }
-    // Si pas trouvé, on retourne un coup aléatoire (devrait pas arriver)
-    std::vector<Move> legalMoves = board.generateLegalMoves(turn);
-    if (!legalMoves.empty()) {
-        return legalMoves[0];
+    std::vector<ScoredMove> scoredMoves;
+    for (auto& sf : scoreFutures) {
+        scoredMoves.push_back(sf.get());
     }
+   //7. Tri des coups par score décroissant
+   std::sort(scoredMoves.begin(), scoredMoves.end(), [](const ScoredMove& a, const ScoredMove& b)
+    {
+          return a.score > b.score;
+    });
+    //8. Choix aleatoire parmi les meilleurs coups
+    if (scoredMoves.size() > 1) {
+        int bestScore = scoredMoves[0].score;
+        int secondScore = scoredMoves[1].score;
+        // Sécurité : si le premier coup est un mat, on le choisit directement
+        // ou si le second est nettement inférieur
+        bool bestIsMate = (bestScore >= 48000);
+        bool hugeGap = (bestScore - secondScore) > 200;
+        if(!bestIsMate && !hugeGap){
+            static std::random_device rd;
+            static std::mt19937 gen(rd());
+            std::uniform_int_distribution<> dis(0, 1);
+            if (dis(gen) == 1) {
+                return scoredMoves[1].move;
+            }
+        }
+
+    }
+    return scoredMoves[0].move;
 }
 
 
