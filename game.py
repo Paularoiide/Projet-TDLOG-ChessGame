@@ -28,7 +28,7 @@ class Variante(enum.Enum):
 
 # --- MOTEUR ---
 class Engine():
-    def __init__(self, engine_path: str, variant: str, nb_ai: int = 0, ai_depth = [5, 5]):
+    def __init__(self, engine_path: str, variant: str, mode: str, ai_depth = [5, 5]):
         if not os.path.exists(engine_path):
             raise FileNotFoundError(f"Moteur introuvable à : {engine_path}")
         
@@ -38,20 +38,13 @@ class Engine():
         except Exception:
             pass
 
-        cmd = [engine_path, variant] 
+        cmd = [engine_path, variant, mode] 
 
-        if nb_ai == 1:
-            mode_arg = "PvAI"
-            cmd.append(mode_arg)
+        if mode == "PvAI" or mode == "AIvP":
             cmd.append(str(ai_depth[0]))
-        elif nb_ai == 2:
-            mode_arg = "AIvAI"
-            cmd.append(mode_arg)
+        elif mode == "AIvAI":
             cmd.append(str(ai_depth[0]))
             cmd.append(str(ai_depth[1]))
-        else:
-            mode_arg = "PvP"
-            cmd.append(mode_arg)
                 
         
         try:
@@ -219,16 +212,39 @@ class Board():
         return [row[:] for row in self.board]
 
 class DisplayGame():
-    def __init__(self, root, variant_str: str, engine_path: str, nb_ai: int = 0, ai_depth = [5, 5]):
+    def __init__(self, root, variant_str: str, engine_path: str, mode: str, player_color: str = "white", ai_depth = [5, 5], on_quit_callback=None):
         self.root = root
-        self.engine = Engine(engine_path, variant_str, nb_ai, ai_depth)
-        self.board = Board(Variante.FAIRY if variant_str == "fairy" else Variante.CLASSIC)
+        self.on_quit_callback = on_quit_callback
+        self.is_quitting = False
+        self.main_frame = tk.Frame(root, bg="#333333")
+        self.main_frame.pack(fill="both", expand=True)
 
-        self.nb_ai = nb_ai
-        self.gamemode = "PvP" if nb_ai == 0 else "PvAI" if nb_ai == 1 else "AIvAI"
+        self.board_frame = tk.Frame(self.main_frame, bg="#333333")
+        self.board_frame.pack(side=tk.LEFT, padx=20, pady=20)
+
+        self.side_frame = tk.Frame(self.main_frame, bg="#444444", width=200)
+        self.side_frame.pack(side=tk.RIGHT, fill="y")
         
-        self.root.title(f"Chess : {self.gamemode}")
-        self.canvas = tk.Canvas(root, width=BOARD_SIZE, height=BOARD_SIZE)
+        tk.Label(self.side_frame, text="Menu", bg="#444444", fg="white", font=("Arial", 14, "bold")).pack(pady=(20, 10))
+        
+        btn_quit = tk.Button(self.side_frame, text="Quitter la partie", command=self.quit_game,
+                             bg="#d9534f", fg="white", font=("Arial", 12, "bold"),
+                             activebackground="#c9302c", activeforeground="white",
+                             width=15, height=2, bd=0)
+        btn_quit.pack(padx=20, pady=10)
+
+        final_mode_arg = mode
+        if mode == "PvAI" and player_color == "black":
+            final_mode_arg = "AIvP"
+            
+        self.engine = Engine(engine_path, variant_str, final_mode_arg, ai_depth)
+        self.board = Board(Variante.FAIRY if variant_str == "fairy" else Variante.CLASSIC)
+        self.gamemode = mode 
+        self.engine_mode = final_mode_arg 
+        
+        self.root.title(f"Chess : {self.gamemode} ({player_color})")
+        
+        self.canvas = tk.Canvas(self.board_frame, width=BOARD_SIZE, height=BOARD_SIZE)
         self.canvas.pack()
         
         self.move_handler = Move(self.canvas, self)
@@ -247,14 +263,29 @@ class DisplayGame():
             for _ in range(8):
                 line = self.engine.process.stdout.readline().strip()
                 if line: initial_board.append(line)
-        except:
-            pass
-        
-        self.board.update(initial_board)
-        self.draw_board()
+            
+            self.board.update(initial_board)
+            self.draw_board()
 
-        if self.gamemode == "AIvAI":
-            self.play_AIvAI()
+            if final_mode_arg == "AIvP" or final_mode_arg == "AIvAI":
+                self.root.after(100, self.trigger_ai_turn)
+                
+        except Exception as e:
+            print(f"Erreur init: {e}")
+        
+        if self.gamemode == "AIvAI" and final_mode_arg != "AIvP":
+             pass
+
+    def quit_game(self):
+        """Arrête proprement le jeu et retourne au menu."""
+        if self.is_quitting: return
+        self.is_quitting = True
+        try:
+            self.engine.close()
+        except: pass
+        self.main_frame.destroy()
+        if self.on_quit_callback:
+            self.root.after(10, self.on_quit_callback)
 
 
     def draw_board(self):
@@ -274,52 +305,32 @@ class DisplayGame():
 
     def wait_prom(self, pos):
         """Affiche une popup graphique avec des images sur la case cible."""
-        
-        # 1. Calcul de la position de la case cible à l'écran
         col = ord(pos[0]) - ord('a')
-        row = 8 - int(pos[1]) # 0 en haut, 7 en bas
-        
-        # Coordonnées globales de la fenêtre principale + offset de la case
-        # On ajoute un petit ajustement pour centrer la popup (largeur estimée ~200px)
-        # SQUARE_SIZE est 600 // 8 = 75
-        popup_width = 4 * 60  # 4 boutons d'environ 60px
+        row = 8 - int(pos[1])
+        popup_width = 4 * 60
         popup_height = 60
-        
-        # Position X : Racine X + Case X - (Moitié popup) + (Moitié Case)
         screen_x = self.root.winfo_rootx() + (col * SQUARE_SIZE) - (popup_width // 2) + (SQUARE_SIZE // 2)
         screen_y = self.root.winfo_rooty() + (row * SQUARE_SIZE)
-        
-        # Si on est tout en haut (Blancs), on affiche la popup un peu plus bas pour pas sortir de l'écran
         if row == 0: screen_y += 10
-        # Si on est tout en bas (Noirs), on affiche un peu plus haut
         else: screen_y -= popup_height
 
-        # 2. Création de la fenêtre
         top = tk.Toplevel(self.root)
         top.geometry(f"+{int(screen_x)}+{int(screen_y)}")
-        top.overrideredirect(True) # Enlève la barre de titre (style popup moderne)
-        top.attributes("-topmost", True) # Toujours au premier plan
-        
-        # Variable pour le résultat (par défaut reine 'q')
+        top.overrideredirect(True)
+        top.attributes("-topmost", True)
         choice_var = tk.StringVar(value="q")
 
         def select(code):
             choice_var.set(code)
             top.destroy()
-        
-        # 3. Choix des images (Blanches ou Noires ?)
-        # Si pos fini par '8', c'est les blancs qui promeuvent
+    
         is_white = (pos[1] == '8')
-        
-        # Liste des choix : (Code C++, Clé Image)
         options = [
             ("q", "Q" if is_white else "q"),
             ("r", "R" if is_white else "r"),
             ("b", "B" if is_white else "b"),
             ("n", "N" if is_white else "n")
         ]
-
-        # 4. Création des boutons avec images
         for code, img_key in options:
             if img_key in self.piece_images:
                 img = self.piece_images[img_key]
@@ -327,16 +338,15 @@ class DisplayGame():
                                 bg="#f0f0f0", activebackground="#BBCB2B", bd=1)
                 btn.pack(side=tk.LEFT, padx=2, pady=2)
             else:
-                # Fallback texte si image manquante
                 tk.Button(top, text=code.upper(), command=lambda c=code: select(c)).pack(side=tk.LEFT)
 
-        # 5. Attente bloquante
         top.grab_set() 
         self.root.wait_window(top)
         
         return choice_var.get()
 
     def submit_move(self, pos1, pos2):
+        if self.is_quitting: return
         piece = self.board[pos1]
         if not piece: return
 
@@ -357,11 +367,24 @@ class DisplayGame():
             self.root.after(50, self.trigger_ai_turn)
 
     def trigger_ai_turn(self):
-        prefix, data = self.engine.read_board()
-        if prefix == "VAL":
-            self.act(data)
-        elif prefix == "END":
-            messagebox.showinfo("Fin de partie", "Partie terminée !")
+        if self.is_quitting: return
+        if not self.engine or not self.engine.process: return
+
+        try:
+            if self.engine.process.poll() is not None: return
+
+            prefix, data = self.engine.read_board()
+            
+            if prefix == "VAL":
+                self.act(data)
+                if self.gamemode == "AIvAI" and not self.is_quitting:
+                    self.root.after(100, self.trigger_ai_turn)
+                    
+            elif prefix == "END":
+                messagebox.showinfo("Fin de partie", "Partie terminée !")
+                
+        except Exception:
+            pass
 
     def ask_engine(self, command=None):
         prefix, data = self.engine.send_request(command)
@@ -400,10 +423,14 @@ def ask_settings(root):
     
     var_variant = tk.StringVar(value="classic")
     var_mode = tk.StringVar(value="PvP")
+    var_color = tk.StringVar(value="white")
     
     dialog = tk.Toplevel(root)
     dialog.title("Configuration de la partie")
-    dialog.geometry("350x250")
+    dialog.geometry("500x350")
+
+    dialog.lift()
+    dialog.focus_force()
     
     tk.Label(dialog, text="1. Choisissez la variante :", font=("Arial", 11, "bold")).pack(pady=(15, 5))
     
@@ -416,9 +443,26 @@ def ask_settings(root):
     
     frame_mode = tk.Frame(dialog)
     frame_mode.pack()
-    tk.Radiobutton(frame_mode, text="Joueur vs Joueur (PvP)", variable=var_mode, value="PvP").pack(side=tk.LEFT, padx=10)
-    tk.Radiobutton(frame_mode, text="Joueur vs IA (PvE)", variable=var_mode, value="PvAI").pack(side=tk.LEFT, padx=10)
+    modes = [("2 joueurs", "PvP"), ("Solo", "PvAI"), ("IA vs IA", "AIvAI")]
+    for text, val in modes:
+        tk.Radiobutton(frame_mode, text=text, variable=var_mode, value=val).pack(side=tk.LEFT, padx=5)
+
+    lbl_color = tk.Label(dialog, text="3. Votre couleur :", font=("Arial", 11, "bold"))
+    frame_color = tk.Frame(dialog)
     
+    tk.Radiobutton(frame_color, text="Blancs (Vous commencez)", variable=var_color, value="white").pack(anchor=tk.W)
+    tk.Radiobutton(frame_color, text="Noirs (IA commence)", variable=var_color, value="black").pack(anchor=tk.W)
+
+    def update_visibility(*args):
+        if var_mode.get() == "PvAI":
+            lbl_color.pack(pady=(15, 5))
+            frame_color.pack()
+        else:
+            lbl_color.pack_forget()
+            frame_color.pack_forget()
+
+    var_mode.trace_add("write", update_visibility)
+
     def on_submit():
         dialog.destroy()
         
@@ -427,11 +471,11 @@ def ask_settings(root):
     
     root.wait_window(dialog)
     
-    return var_variant.get(), var_mode.get()
+    return var_variant.get(), var_mode.get(), var_color.get()
 
 if __name__== "__main__":
     root = tk.Tk()
-    root.withdraw() 
+    root.withdraw()
     
     base_dir = os.path.dirname(os.path.abspath(__file__))
     target_name = "TDLOG_ChessGame.exe" if os.name == 'nt' else "TDLOG_ChessGame"
@@ -441,18 +485,26 @@ if __name__== "__main__":
         messagebox.showerror("Erreur critique", "Exécutable introuvable.\nVeuillez compiler le projet C++.")
         sys.exit(1)
 
-    variant_choice, mode_choice = ask_settings(root)
-    print(f"Lancement : Variante={variant_choice}, Mode={mode_choice}")
+    def launcher():
+        root.withdraw()
+        try:
+            variant_choice, mode_choice, color_choice = ask_settings(root)
+        except tk.TclError:
+            sys.exit(0)
+            
+        print(f"Lancement : Variante={variant_choice}, Mode={mode_choice}, Couleur={color_choice}")
 
-    ai_count = 0 if mode_choice == "PvP" else 1 if mode_choice == "PvAI" else 2
+        root.deiconify()
+        DisplayGame(root, variant_choice, final_path, 
+                    mode=mode_choice, 
+                    player_color=color_choice, 
+                    on_quit_callback=launcher)
 
-    root.deiconify()
-    
-    game = DisplayGame(root, variant_choice, final_path, nb_ai=ai_count)
+    launcher()
     
     def on_closing():
-        game.engine.close()
-        game.root.destroy()
+        root.destroy()
+        sys.exit(0)
+
     root.protocol("WM_DELETE_WINDOW", on_closing)
-    
     root.mainloop()

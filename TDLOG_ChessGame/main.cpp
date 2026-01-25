@@ -167,6 +167,10 @@ int main(int argc, char* argv[]) {
         players[0] = new HumanPlayer();
         players[1] = new AI(new MaterialAndPositionEvaluation(), depth[0]);
     }
+    else if (gamemode == "AIvP") {
+        players[0] = new AI(new MaterialAndPositionEvaluation(), depth[0]);
+        players[1] = new HumanPlayer();
+    }
     else {
         players[0] = new AI(new MaterialAndPositionEvaluation(), depth[0]);
         players[1] = new AI(new MaterialAndPositionEvaluation(), depth[1]);
