@@ -227,7 +227,7 @@ class DisplayGame():
         
         tk.Label(self.side_frame, text="Menu", bg="#444444", fg="white", font=("Arial", 14, "bold")).pack(pady=(20, 10))
         
-        btn_quit = tk.Button(self.side_frame, text="Quitter la partie", command=self.quit_game,
+        btn_quit = tk.Button(self.side_frame, text="Revenir au menu", command=self.quit_game,
                              bg="#d9534f", fg="white", font=("Arial", 12, "bold"),
                              activebackground="#c9302c", activeforeground="white",
                              width=15, height=2, bd=0)
@@ -473,7 +473,6 @@ def ask_settings(root):
 
 if __name__== "__main__":
     root = tk.Tk()
-    root.withdraw()
     
     base_dir = os.path.dirname(os.path.abspath(__file__))
     target_name = "TDLOG_ChessGame.exe" if os.name == 'nt' else "TDLOG_ChessGame"
