@@ -1,4 +1,18 @@
-#ifndef PLAYER_H
-#define PLAYER_H
+#pragma once
+#include "move.h"
+#include "game.h"
 
-#endif // PLAYER_H
+class Player {
+public:
+    virtual Move getMove(Game& g) = 0;
+    virtual ~Player() = default;
+};
+
+// -------------------------
+// Human player (via stdin)
+// -------------------------
+class HumanPlayer : public Player {
+public:
+    Move getMove(Game& g) override;
+};
+
