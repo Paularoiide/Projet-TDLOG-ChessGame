@@ -13,7 +13,10 @@ class Game {
 public:
     Game();
     void startGame(Variant v = Variant::Classic);
+<<<<<<< HEAD
     void endTurn();
+=======
+>>>>>>> dev
     bool playMove(const Move& move);
     bool prom(int pt);
     const Board& board() const { return board_; }

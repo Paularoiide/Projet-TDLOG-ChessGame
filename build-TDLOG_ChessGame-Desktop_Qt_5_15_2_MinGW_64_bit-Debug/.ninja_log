@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # ninja log v7
 36	143	7909810191543842	CMakeFiles/TDLOG_ChessGame.dir/variants.cpp.obj	20947ee2dbc4091a
 24	492	7909810191437100	CMakeFiles/TDLOG_ChessGame.dir/move.cpp.obj	67c58b65b49028e4
@@ -34,3 +35,26 @@
 925	2074	7909947736993055	TDLOG_ChessGame.exe	27acc7aa7d5b688d
 61	2259	7910459272793881	CMakeFiles/TDLOG_ChessGame.dir/main.cpp.obj	4d64261006f13f62
 2260	4708	7910459294766522	TDLOG_ChessGame.exe	27acc7aa7d5b688d
+=======
+# ninja log v5
+42	2023	7899249244902484	CMakeFiles/TDLOG_ChessGame.dir/game.cpp.obj	a94b91dafe0d7f7d
+37	2036	7899249244977467	CMakeFiles/TDLOG_ChessGame.dir/player.cpp.obj	86170d22c2aff9bc
+1	2045	7899249245157677	CMakeFiles/TDLOG_ChessGame.dir/main.cpp.obj	b7ac2eab67f11cdb
+3	1998	7899253568615697	CMakeFiles/TDLOG_ChessGame.dir/ai.cpp.obj	1beb0959869f0d66
+31	2015	7899249244840576	CMakeFiles/TDLOG_ChessGame.dir/move.cpp.obj	c1bfb65396eca8fc
+25	2044	7899249245147595	CMakeFiles/TDLOG_ChessGame.dir/board.cpp.obj	47fb451f3d1454a8
+2000	3426	7899253582824761	TDLOG_ChessGame.exe	bb3de40d88a84518
+48	2001	7899249244672644	CMakeFiles/TDLOG_ChessGame.dir/variants.cpp.obj	93e322464a7d5874
+16	241	7899269710836755	CMakeFiles/TDLOG_ChessGame.dir/variants.cpp.obj	93e322464a7d5874
+31	697	7899269715565472	CMakeFiles/TDLOG_ChessGame.dir/move.cpp.obj	c1bfb65396eca8fc
+26	846	7899269717272693	CMakeFiles/TDLOG_ChessGame.dir/player.cpp.obj	86170d22c2aff9bc
+21	853	7899269717357986	CMakeFiles/TDLOG_ChessGame.dir/game.cpp.obj	a94b91dafe0d7f7d
+0	884	7899269717751369	CMakeFiles/TDLOG_ChessGame.dir/main.cpp.obj	b7ac2eab67f11cdb
+6	1061	7899269719559342	CMakeFiles/TDLOG_ChessGame.dir/board.cpp.obj	47fb451f3d1454a8
+3	1196	7899270005894136	CMakeFiles/TDLOG_ChessGame.dir/ai.cpp.obj	1beb0959869f0d66
+1197	3022	7899270024203648	TDLOG_ChessGame.exe	bb3de40d88a84518
+5	718	7899277430555751	CMakeFiles/TDLOG_ChessGame.dir/main.cpp.obj	b7ac2eab67f11cdb
+719	2768	7899277450986140	TDLOG_ChessGame.exe	bb3de40d88a84518
+5	1656	7899286735833094	CMakeFiles/TDLOG_ChessGame.dir/main.cpp.obj	b7ac2eab67f11cdb
+1658	3717	7899286756221006	TDLOG_ChessGame.exe	bb3de40d88a84518
+>>>>>>> dev

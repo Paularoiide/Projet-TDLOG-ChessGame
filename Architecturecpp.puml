@@ -1,0 +1,144 @@
+@startuml ChessEngine_ClassDiagram
+
+' --- Styles ---
+skinparam classAttributeIconSize 0
+skinparam linetype ortho
+
+' --- Enums ---
+enum GameState {
+    Playing
+    Check
+    Checkmate
+    Stalemate
+}
+
+enum Color {
+    White
+    Black
+    None
+}
+
+enum PieceType {
+    Pawn
+    Knight
+    Bishop
+    Rook
+    Queen
+    King
+    Princess
+    Empress
+    Nightrider
+    Grasshopper
+    None
+}
+
+enum Variant {
+    Classic
+    FairyChess
+}
+
+enum TTFlag {
+    EXACT
+    ALPHA
+    BETA
+}
+
+' --- Structures & Classes ---
+
+class Move {
+    +int from
+    +int to
+    +PieceType promotion
+    +Move(int f, int t, PieceType p)
+}
+
+struct TTEntry {
+    +uint64_t key
+    +int score
+    +int depth
+    +Move bestMove
+    +TTFlag flag
+    +TTEntry()
+}
+
+class Board {
+    -Bitboard bitboards_[2][10]
+    -Bitboard occupancies_[3]
+    -bool castleRights_[4]
+    -int enPassantTarget_
+    -uint64_t zobristKey_
+    
+    +Board(Variant v)
+    +getPieceTypeAt(int square, Color& c) PieceType
+    +movePiece(int from, int to, PieceType promo)
+    +generateLegalMoves(Color turn) vector<Move>
+    +isSquareAttacked(int sq, Color attacker) bool
+    +isInCheck(Color c) bool
+    +calculateHash() uint64_t
+}
+
+class Game {
+    -Board board_
+    -Color currentTurn_
+    -GameState state_
+    
+    +Game()
+    +startGame(Variant v)
+    +playMove(Move move) bool
+    +gameState() GameState
+    +board() Board
+}
+
+abstract class Player {
+    +{abstract} getMove(Game& g) Move
+}
+
+interface EvaluationFunctions {
+    +{abstract} operator()(const Board& board) int
+}
+
+class MaterialAndPositionEvaluation {
+    +operator()(const Board& board) int
+}
+
+class AI {
+    -int searchDepth
+    -int ttSize
+    -mutex ttMutex
+    
+    +AI(EvaluationFunctions* evalStrategy, int depth)
+    +~AI()
+    +getBestMove(const Board& board, Color turn) Move
+    
+    -negamax(Board& b, int depth, int alpha, int beta, int color) int
+    -quiescence(Board& b, int alpha, int beta, int color) int
+    -storeTT(key, score, depth, alpha, beta, bestMove)
+    -probeTT(key, depth, alpha, beta, score, bestMove) bool
+}
+
+' --- Relations ---
+
+' Composition: Game owns Board
+Game *-- Board : has >
+
+' Game uses Enums
+Game ..> GameState
+Game ..> Color
+Board ..> PieceType
+Board ..> Variant
+
+' Inheritance
+Player <|-- AI
+EvaluationFunctions <|.. MaterialAndPositionEvaluation
+
+' Aggregation: AI has a Strategy
+AI o-- EvaluationFunctions : uses strategy >
+
+' Composition: AI has a Transposition Table
+AI *-- "0..*" TTEntry : transpositionTable
+
+' Dependency
+AI ..> Move
+Game ..> Move
+
+@enduml

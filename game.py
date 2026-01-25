@@ -273,8 +273,6 @@ class DisplayGame():
         except Exception as e:
             print(f"Erreur init: {e}")
         
-        if self.gamemode == "AIvAI" and final_mode_arg != "AIvP":
-             pass
 
     def quit_game(self):
         """Arrête proprement le jeu et retourne au menu."""
@@ -507,4 +505,5 @@ if __name__== "__main__":
         sys.exit(0)
 
     root.protocol("WM_DELETE_WINDOW", on_closing)
+    
     root.mainloop()
