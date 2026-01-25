@@ -51,7 +51,6 @@ std::string indexToSquare(int sq) {
     return s;
 }
 
-<<<<<<< HEAD
 
 int parseSquare(const std::string& s) {
     if (s.size() < 2) return -1;
@@ -59,27 +58,11 @@ int parseSquare(const std::string& s) {
 }
 
 // --- BOUCLE UCI (Pour Arena) ---
-=======
-std::string indexToSquare(int sq) {
-    std::string s = "";
-    s += (char)('a' + (sq % 8));
-    s += (char)('1' + (sq / 8));
-    return s;
-}
-
-// --- UCI PROTOCOL LOOP ---
-
->>>>>>> dev
 void uci_loop() {
     Game game;
     game.startGame(Variant::Classic);
 
-<<<<<<< HEAD
     AI bot(new MaterialAndPositionEvaluation(), 6);
-=======
-    // Default UCI depth
-    AI bot(new MaterialAndPositionEvaluation(), 5);
->>>>>>> dev
 
     std::string line, token;
 
@@ -88,11 +71,7 @@ void uci_loop() {
         ss >> token;
 
         if (token == "uci") {
-<<<<<<< HEAD
             std::cout << "id name TDLOG_Engine" << std::endl;
-=======
-            std::cout << "id name TDLOG_ChessEngine" << std::endl;
->>>>>>> dev
             std::cout << "id author You" << std::endl;
             std::cout << "uciok" << std::endl;
         }
@@ -103,7 +82,6 @@ void uci_loop() {
             game.startGame(Variant::Classic);
         }
         else if (token == "position") {
-<<<<<<< HEAD
             std::string sub;
             ss >> sub;
 
@@ -131,54 +109,13 @@ void uci_loop() {
                     }
 
                     game.playMove(Move(from, to, promo));
-=======
-            std::string posType;
-            ss >> posType;
-            if (posType == "startpos") {
-                game.startGame(Variant::Classic);
-            }
-
-            std::string movesKeyword;
-            while (ss >> movesKeyword) {
-                if (movesKeyword == "moves") {
-                    std::string moveStr;
-                    while (ss >> moveStr) {
-                        // Parse UCI move (e.g., "e2e4" or "a7a8q")
-                        if (moveStr.length() < 4) continue;
-
-                        int f = (moveStr[0] - 'a') + (moveStr[1] - '1') * 8;
-                        int t = (moveStr[2] - 'a') + (moveStr[3] - '1') * 8;
-                        PieceType p = PieceType::None;
-
-                        if (moveStr.length() > 4) {
-                            char promoChar = moveStr[4];
-                            if (promoChar == 'q') p = PieceType::Queen;
-                            else if (promoChar == 'r') p = PieceType::Rook;
-                            else if (promoChar == 'b') p = PieceType::Bishop;
-                            else if (promoChar == 'n') p = PieceType::Knight;
-                        }
-
-                        game.playMove(Move(f, t, p));
-                    }
-                    break;
->>>>>>> dev
                 }
             }
         }
         else if (token == "go") {
             Move best = bot.getBestMove(game.board(), game.currentTurn());
             std::cout << "bestmove " << indexToSquare(best.from) << indexToSquare(best.to);
-<<<<<<< HEAD
             if (best.promotion != PieceType::None) std::cout << "q";
-=======
-            if (best.promotion != PieceType::None) {
-                char p = 'q';
-                if (best.promotion == PieceType::Rook) p = 'r';
-                else if (best.promotion == PieceType::Bishop) p = 'b';
-                else if (best.promotion == PieceType::Knight) p = 'n';
-                std::cout << p;
-            }
->>>>>>> dev
             std::cout << std::endl;
         }
         else if (token == "quit") {
@@ -187,7 +124,6 @@ void uci_loop() {
     }
 }
 
-<<<<<<< HEAD
 
 int main(int argc, char* argv[]) {
 
@@ -203,33 +139,10 @@ int main(int argc, char* argv[]) {
 
     if(argc>1){
         if (std::string(argv[1]) == "fairy"){
-=======
-// --- MAIN ---
-
-int main(int argc, char* argv[]) {
-    // 0. CHECK FOR UCI MODE
-    if (argc > 1) {
-        std::string arg1 = argv[1];
-        if (arg1 == "uci") {
-            uci_loop();
-            return 0;
-        }
-    }
-
-    Variant selectedVariant = Variant::Classic;
-    bool isPvP = false;
-    int searchDepth = 5;
-
-    // 1. VARIANT
-    if (argc > 1) {
-        std::string arg = argv[1];
-        if (arg == "fairy") {
->>>>>>> dev
             selectedVariant = Variant::FairyChess;
         }
     }
 
-<<<<<<< HEAD
     if(argc>2){
         gamemode = argv[2];
     }
@@ -265,84 +178,18 @@ int main(int argc, char* argv[]) {
     }
 
     print_board_raw(g.board());
-=======
-    // 2. MODE
-    if (argc > 2) {
-        std::string mode = argv[2];
-        if (mode == "pvp") {
-            isPvP = true;
-        }
-    }
-
-    // 3. DEPTH
-    if (argc > 3) {
-        try {
-            searchDepth = std::stoi(argv[3]);
-            if (searchDepth < 1) searchDepth = 1;
-            if (searchDepth > 10) searchDepth = 10;
-        } catch (...) {
-            searchDepth = 4;
-        }
-    }
-
-    Game game;
-    game.startGame(selectedVariant);
-
-    AI bot(new MaterialAndPositionEvaluation(), searchDepth);
-
-    print_board_raw(game.board());
->>>>>>> dev
 
     std::string line;
     int player = 0; 
     bool played = false;
 
-<<<<<<< HEAD
     while (true) {
         GameState state = g.gameState();
-=======
-        if (line.rfind("possible", 0) == 0) {
-            std::stringstream ss(line);
-            std::string cmd, sqStr;
-            ss >> cmd >> sqStr;
-            int reqSq = -1;
-            if (sqStr.size() >= 2) {
-                int f = sqStr[0] - 'a';
-                int r = sqStr[1] - '1';
-                if (f >= 0 && f < 8 && r >= 0 && r < 8) reqSq = r * 8 + f;
-            }
-            if (reqSq != -1) {
-                std::vector<Move> moves = game.board().generateLegalMoves(game.currentTurn());
-                bool first = true;
-                for (const auto& m : moves) {
-                    if (m.from == reqSq) {
-                        if (!first) std::cout << " ";
-                        std::cout << indexToSquare(m.to);
-                        first = false;
-                    }
-                }
-            }
-            std::cout << std::endl;
-            continue;
-        }
-
-        // --- Human Turn ---
-        Move humanMove = parse_move_string(line);
-        if (!game.playMove(humanMove)) {
-            print_board_raw(game.board());
-            continue;
-        }
-
-        print_board_raw(game.board());
-
-        GameState state = game.gameState();
->>>>>>> dev
         if (state == GameState::Checkmate || state == GameState::Stalemate) {
             std::cout << "END" << std::endl;
             break; 
         }
 
-<<<<<<< HEAD
         AI* bot = dynamic_cast<AI*>(players[player]);
 
         if (bot) {
@@ -407,13 +254,6 @@ int main(int argc, char* argv[]) {
                     print_board_raw(g.board());
                 }
             }
-=======
-        // --- AI Turn ---
-        if (!isPvP) {
-            Move aiMove = bot.getBestMove(game.board(), game.currentTurn());
-            game.playMove(aiMove);
-            print_board_raw(game.board());
->>>>>>> dev
         }
     }
 

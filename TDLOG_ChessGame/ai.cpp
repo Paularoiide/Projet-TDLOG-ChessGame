@@ -346,47 +346,7 @@ Move AI::getBestMove(const Board& board, Color turn) {
 }
 
 
-// 6) QUIESCENCE (recherche sur les captures)
 
-int AI::quiescence(const Board& board, int alpha, int beta, int colorMultiplier) {
-    // Évaluation statique
-    int stand_pat = colorMultiplier * (*evaluate)(board);
-
-    if (stand_pat >= beta) return beta;
-
-    // Delta pruning : si trop bas, on ne creuse pas
-    const int DELTA = 975;
-    if (stand_pat < alpha - DELTA) return alpha;
-
-    if (stand_pat > alpha) alpha = stand_pat;
-
-    Color turn = (colorMultiplier == 1) ? Color::White : Color::Black;
-    std::vector<Move> moves = board.generateCaptures(turn);
-
-    // Promotions avant le reste
-    std::sort(moves.begin(), moves.end(), [](const Move& a, const Move& b) {
-        if (a.promotion != PieceType::None && b.promotion == PieceType::None) return true;
-        if (a.promotion == PieceType::None && b.promotion != PieceType::None) return false;
-        return false;
-    });
-
-    for (const auto& move : moves) {
-        Board nextBoard = board;
-        nextBoard.movePiece(move.from, move.to, move.promotion);
-
-        // On évite les captures illégales (ex : on se met en échec)
-        if (nextBoard.isInCheck(turn)) {
-            continue;
-        }
-
-        int score = -quiescence(nextBoard, -beta, -alpha, -colorMultiplier);
-
-        if (score >= beta) return beta;
-        if (score > alpha) alpha = score;
-    }
-
-    return alpha;
-}
 
 // ==========================================
 // 6. QUIESCENCE SEARCH (From Dev)

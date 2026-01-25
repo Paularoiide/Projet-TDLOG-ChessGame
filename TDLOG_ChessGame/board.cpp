@@ -977,58 +977,5 @@ uint64_t Board::calculateHash() const {
     return hash;
 }
 
-// =======================
-//   ZOBRIST IMPLEMENTATION
-// =======================
-void Board::initZobristKeys() {
-    if (zInitialized) return;
-    
-    // 64-bit random number generator (Mersenne Twister)
-    std::mt19937_64 rng(123456789);
 
-    for (int c = 0; c < 2; ++c) {
-        for (int p = 0; p < 6; ++p) {
-            for (int sq = 0; sq < 64; ++sq) {
-                zPieceKeys[c][p][sq] = rng();
-            }
-        }
-    }
-    for (int sq = 0; sq < 65; ++sq) zEnPassantKeys[sq] = rng();
-    for (int k = 0; k < 16; ++k) zCastleKeys[k] = rng();
-    zSideKey = rng();
 
-    zInitialized = true;
-}
-
-// Optimized function to calculate the hash (uses bitboards as evaluate)
-uint64_t Board::calculateHash() const {
-    uint64_t hash = 0;
-
-    // 1. Pieces
-    for (int c = 0; c < 2; ++c) {
-        for (int p = 0; p < 6; ++p) {
-            Bitboard bb = bitboards_[c][p];
-            while (bb) {
-                int sq = __builtin_ctzll(bb);
-                hash ^= zPieceKeys[c][p][sq];
-                bb &= (bb - 1);
-            }
-        }
-    }
-
-    // 2. En Passant
-    if (enPassantTarget_ != -1) {
-        hash ^= zEnPassantKeys[enPassantTarget_];
-    }
-
-    // 3. Castling
-    // Construct an index 0-15 based on the 4 booleans
-    int castleMask = 0;
-    if (castleRights_[0]) castleMask |= 1; // WK
-    if (castleRights_[1]) castleMask |= 2; // WQ
-    if (castleRights_[2]) castleMask |= 4; // BK
-    if (castleRights_[3]) castleMask |= 8; // BQ
-    hash ^= zCastleKeys[castleMask];
-    
-    return hash;
-}

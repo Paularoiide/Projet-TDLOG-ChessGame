@@ -143,11 +143,7 @@ CMAKE_INSTALL_SYSCONFDIR:PATH=etc
 CMAKE_LINKER:FILEPATH=C:/ENPC/Tools/mingw810_64/bin/ld.exe
 
 //Program used to build from build.ninja files.
-<<<<<<< HEAD
 CMAKE_MAKE_PROGRAM:FILEPATH=C:/mingw64/bin/ninja.exe
-=======
-CMAKE_MAKE_PROGRAM:FILEPATH=C:/ENPC/Tools/Ninja/ninja.exe
->>>>>>> dev
 
 //Flags used by the linker during the creation of modules during
 // all build types.
