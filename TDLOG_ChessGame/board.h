@@ -20,6 +20,8 @@ class Board {
     bool castleRights_[4] = {true, true, true, true};
     // En passant target square (-1 if none)
     int enPassantTarget_ = -1;
+    // Zobrist Hash Key for position
+    uint64_t zobristKey_ = 0;
 
 public:
     Board(Variant v = Variant::Classic); // Initializes the standard starting position
@@ -63,4 +65,11 @@ public:
     void disableCastle(Color c, bool kingSide);
 
     int getEnPassantTarget() const { return enPassantTarget_; }
+
+    // Hashing
+    uint64_t getHash() const { return zobristKey_; }
+    // For Zobrist Hashing initialization
+    static void initZobristKeys();
+    // Recalculate the full hash (used after each move to be sure)
+    uint64_t calculateHash() const;
 };
