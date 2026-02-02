@@ -19,41 +19,40 @@ Board::Board(Variant v) {
     std::memset(bitboards_, 0, sizeof(bitboards_));
     std::memset(occupancies_, 0, sizeof(occupancies_));
 
-    // Définition des indices
+    // index definition
     const int PAWN = 0, KNIGHT = 1, BISHOP = 2, ROOK = 3, QUEEN = 4, KING = 5;
     const int PRINCESS = 6, EMPRESS = 7, NIGHTRIDER = 8, GRASSHOPPER = 9;
 
     // ==========================================
-    // 1. PLACEMENT COMMUN (Pions, Tours, Dame, Roi)
+    // 1. COMMON SETUP (Pawns, Rooks, Queen, King)
     // ==========================================
 
     // --- White ---
-    for (int i = 8; i < 16; ++i) setBit(bitboards_[0][PAWN], i); // Pions rangée 2
-    setBit(bitboards_[0][ROOK], 0); setBit(bitboards_[0][ROOK], 7); // Tours a1, h1
-    setBit(bitboards_[0][QUEEN], 3); // Dame d1
-    setBit(bitboards_[0][KING], 4);  // Roi e1
+    for (int i = 8; i < 16; ++i) setBit(bitboards_[0][PAWN], i); // Pawns rank 2
+    setBit(bitboards_[0][ROOK], 0); setBit(bitboards_[0][ROOK], 7); // Rooks a1, h1
+    setBit(bitboards_[0][QUEEN], 3); // Queen d1
+    setBit(bitboards_[0][KING], 4);  // King e1
 
     // --- Black ---
-    for (int i = 48; i < 56; ++i) setBit(bitboards_[1][PAWN], i); // Pions rangée 7
-    setBit(bitboards_[1][ROOK], 56); setBit(bitboards_[1][ROOK], 63); // Tours a8, h8
-    setBit(bitboards_[1][QUEEN], 59); // Dame d8
-    setBit(bitboards_[1][KING], 60);  // Roi e8
-
+    for (int i = 48; i < 56; ++i) setBit(bitboards_[1][PAWN], i); // Pawns rank 7
+    setBit(bitboards_[1][ROOK], 56); setBit(bitboards_[1][ROOK], 63); // Rooks a8, h8
+    setBit(bitboards_[1][QUEEN], 59); // Queen d8
+    setBit(bitboards_[1][KING], 60);  // King e8
 
     // ==========================================
-    // 2. BRANCHEMENT SELON LA VARIANTE
+    // 2. BRANCHING ACCORDING TO THE VARIANT
     // ==========================================
 
     if (v == Variant::FairyChess) {
-        // --- MODE FÉERIQUE ---
-        // Dans ce mode, on REMPLACE les Cavaliers/Fous par Nightrider/Princess/Empress
-        // et on ajoute des Sauterelles.
+        // --- FAIRY MODE ---
+        // In this mode, we REPLACE Knights/Bishops with Nightrider/Princess/Empress
+        // and add Grasshoppers.
 
         // WHITE
-        setBit(bitboards_[0][NIGHTRIDER], 1); // b1 (remplace Cavalier)
-        setBit(bitboards_[0][PRINCESS], 2);   // c1 (remplace Fou)
-        setBit(bitboards_[0][EMPRESS], 5);    // f1 (remplace Fou)
-        setBit(bitboards_[0][NIGHTRIDER], 6); // g1 (remplace Cavalier)
+        setBit(bitboards_[0][NIGHTRIDER], 1); // b1 (replaces Knight)
+        setBit(bitboards_[0][PRINCESS], 2);   // c1 (replaces Bishop)
+        setBit(bitboards_[0][EMPRESS], 5);    // f1 (replaces Bishop)
+        setBit(bitboards_[0][NIGHTRIDER], 6); // g1 (replaces Knight)
 
 
         // BLACK
@@ -64,8 +63,8 @@ Board::Board(Variant v) {
 
 
     } else {
-        // --- MODE CLASSIQUE ---
-        // Configuration standard
+        // --- CLASSIC MODE ---
+        // Standard configuration
 
         // WHITE
         setBit(bitboards_[0][KNIGHT], 1); // b1
@@ -401,8 +400,8 @@ std::vector<Move> Board::generateLegalMoves(Color turn) const {
 
     // --- 5. FAIRY PIECES ---
 
-    // A. PRINCESSE (Princess / Archbishop) = Fou + Cavalier
-    // On génère les mouvements de Fou (Sliding) + les sauts de Cavalier
+    // A. PRINCESSE (Princess / Archbishop) = Bishop + Knight
+    // We generate Bishop (Sliding) moves + Knight jumps
     generateSlidingMoves(PieceType::Princess, bishopDirs, 4);
     
     Bitboard princesses = bitboards_[c][static_cast<int>(PieceType::Princess)];
@@ -422,8 +421,8 @@ std::vector<Move> Board::generateLegalMoves(Color turn) const {
         }
     }
 
-    // B. IMPÉRATRICE (Empress / Chancellor) = Tour + Cavalier
-    // On génère les mouvements de Tour (Sliding) + les sauts de Cavalier
+    // B. IMPÉRATRICE (Empress / Chancellor) = Rook + Knight
+    // We generate Rook (Sliding) moves + Knight jumps
     generateSlidingMoves(PieceType::Empress, rookDirs, 4);
 
     Bitboard empresses = bitboards_[c][static_cast<int>(PieceType::Empress)];
@@ -444,44 +443,44 @@ std::vector<Move> Board::generateLegalMoves(Color turn) const {
     }
 
     // C. NOCTAMBULE (Nightrider)
-    // Se déplace par bonds de cavalier successifs dans la même direction
+    // Moves by successive knight jumps in the same direction
     Bitboard nightriders = bitboards_[c][static_cast<int>(PieceType::Nightrider)];
     for (int sq = 0; sq < 64; ++sq) {
         if (!getBit(nightriders, sq)) continue;
         
-        // Pour chaque direction de cavalier
+        // For each knight direction
         for (int offset : knightOffsets) {
             int curSq = sq;
             while (true) {
                 int prevX = curSq % 8;
                 int nextSq = curSq + offset;
                 
-                // Vérifications de sortie de plateau
+                // Board boundary checks
                 if (nextSq < 0 || nextSq >= 64) break;
-                // Vérification de wrapping (colonnes a-h) : un saut de cavalier change de file de 1 ou 2 max
+                // Wrap-around check (columns a-h): a knight jump changes file by 1 or 2 max
                 if (std::abs((nextSq % 8) - prevX) > 2) break;
 
-                // Si on rencontre une pièce amie, on s'arrête (bloqué)
+                // If we encounter a friendly piece, we stop (blocked)
                 if (getBit(us, nextSq)) break;
 
-                // Ajout du coup
+                // Adding the move
                 Move m(sq, nextSq);
                 if (getBit(them, nextSq)) {
                     m.isCapture = true;
                     moves.push_back(m);
-                    break; // Capture arrête le mouvement
+                    break; // Capture stops the movement
                 }
                 moves.push_back(m);
                 
-                // Si la case était vide, on continue dans la même direction (bond suivant)
+                // If the square was empty, we continue in the same direction (next jump)
                 curSq = nextSq;
             }
         }
     }
 
     // D. SAUTERELLE (Grasshopper)
-    // Se déplace sur les lignes de la Dame, mais doit sauter par-dessus une pièce (amie ou ennemie)
-    // et atterrir sur la case juste derrière.
+    // Moves along Queen lines, but must jump over a piece (friendly or enemy)
+    // and land on the square immediately behind.
     Bitboard grasshoppers = bitboards_[c][static_cast<int>(PieceType::Grasshopper)];
     const int allDirs[] = {-9, -8, -7, -1, 1, 7, 8, 9};
     
@@ -495,7 +494,7 @@ std::vector<Move> Board::generateLegalMoves(Color turn) const {
             int curX = x; 
             int curY = y;
             
-            // Calcul des pas X/Y pour vérifier les bords proprement
+            // Calculating step X/Y to properly check board edges
             int stepX = 0, stepY = 0;
             if (offset == -1 || offset == -9 || offset == 7) stepX = -1;
             if (offset == 1  || offset == 9  || offset == -7) stepX = 1;
@@ -514,19 +513,19 @@ std::vector<Move> Board::generateLegalMoves(Color turn) const {
                 if (curX < 0 || curX > 7 || curY < 0 || curY > 7) break;
 
                 if (!foundHurdle) {
-                    // On cherche le sautoir (n'importe quelle pièce)
+                    // Looking for the hurdle (any piece)
                     if (isSquareOccupied(curSq)) {
                         foundHurdle = true;
-                        // On continue la boucle UNE fois de plus pour atterrir derrière
+                        // We continue the loop ONE more time to land behind
                     }
                 } else {
-                    // On a déjà sauté le sautoir, voici la case d'arrivée
-                    if (!getBit(us, curSq)) { // Case vide ou ennemi
+                    // We have already jumped the hurdle, here is the landing square
+                    if (!getBit(us, curSq)) { // Empty or enemy square
                         Move m(sq, curSq);
                         if (getBit(them, curSq)) m.isCapture = true;
                         moves.push_back(m);
                     }
-                    break; // La sauterelle ne va pas plus loin
+                    break; // The grasshopper does not go further
                 }
             }
         }
@@ -798,9 +797,9 @@ bool Board::isSquareAttacked(int square, Color attacker) const {
     Bitboard enemyNightriders  = bitboards_[static_cast<int>(attacker)][static_cast<int>(PieceType::Nightrider)];
     Bitboard enemyGrasshoppers = bitboards_[static_cast<int>(attacker)][static_cast<int>(PieceType::Grasshopper)];
 
-    // 6. Princess & Empress (Composante Cavalier)
-    // On vérifie les cases de saut de cavalier autour de `square`
-    // Si on y trouve une Princesse ou une Impératrice ennemie, on est attaqué.
+    // 6. Princess & Empress (Knight Component)
+    // We verify knight-like attacks for both pieces.
+    // If we find an enemy Princess or Empress, the square is attacked.
     for (int offset : kOffsets) {
         int target = square + offset;
         if (target >= 0 && target < 64 && std::abs((target % 8) - x) <= 2) {
@@ -808,12 +807,12 @@ bool Board::isSquareAttacked(int square, Color attacker) const {
         }
     }
 
-    // 7. Princess (Composante Fou) & Empress (Composante Tour)
-    // On réutilise la logique de rayon. 
-    // Note: Dans ton code existant (étape 4 et 5), tu vérifies déjà Rooks/Queens et Bishops/Queens.
-    // Il suffit d'ajouter Empress aux checks orthogonaux et Princess aux checks diagonaux.
+    // 7. Princess (Bishop Component) & Empress (Rook Component)
+    // We reuse the ray logic. 
+    // Note: In your existing code (steps 4 and 5), you already check Rooks/Queens and Bishops/Queens.
+    // You just need to add Empress to the orthogonal checks and Princess to the diagonal checks.
     
-    // A. Mise à jour check Orthogonal (pour Impératrice)
+    // A. Update Orthogonal check (for Empress)
     for (int step : orthoDirs) {
         int curr = square;
         while (true) {
@@ -822,14 +821,14 @@ bool Board::isSquareAttacked(int square, Color attacker) const {
             curr += step;
             if (curr < 0 || curr >= 64) break;
             if (isSquareOccupied(curr)) {
-                // AJOUT: on vérifie aussi enemyEmpresses
+                // ADD: also check enemyEmpresses
                 if (getBit(enemyRooks, curr) || getBit(enemyQueens, curr) || getBit(enemyEmpresses, curr)) return true;
                 break;
             }
         }
     }
 
-    // B. Mise à jour check Diagonal (pour Princesse)
+    // B. Update Diagonal check (for Princess)
     for (int step : diagDirs) {
         int curr = square;
         while (true) {
@@ -839,7 +838,7 @@ bool Board::isSquareAttacked(int square, Color attacker) const {
             curr += step;
             if (curr < 0 || curr >= 64) break;
             if (isSquareOccupied(curr)) {
-                // AJOUT: on vérifie aussi enemyPrincesses
+                // ADD: also check enemyPrincesses
                 if (getBit(enemyBishops, curr) || getBit(enemyQueens, curr) || getBit(enemyPrincesses, curr)) return true;
                 break;
             }
@@ -847,34 +846,34 @@ bool Board::isSquareAttacked(int square, Color attacker) const {
     }
 
     // 8. Nightrider (Noctambule)
-    // On regarde dans les directions de cavalier, mais on continue tant que c'est vide.
+    // We look in knight directions, but continue as long as it's empty.
     for (int offset : kOffsets) {
-        int curSq = square; // On part de la case attaquée (ex: notre Roi)
+        int curSq = square; // Starting from the attacked square (e.g., our King)
         while (true) {
             int prevX = curSq % 8;
-            int nextSq = curSq + offset; // On remonte le rayon vers l'attaquant potentiel
+            int nextSq = curSq + offset; // We move along the ray towards the potential attacker
             
             if (nextSq < 0 || nextSq >= 64) break;
             if (std::abs((nextSq % 8) - prevX) > 2) break;
 
             if (isSquareOccupied(nextSq)) {
                 if (getBit(enemyNightriders, nextSq)) return true;
-                break; // Bloqué par une pièce (amie ou autre ennemie)
+                break; // Blocked by a piece (friendly or other enemy)
             }
             curSq = nextSq;
         }
     }
 
     // 9. Grasshopper (Sauterelle)
-    // Une sauterelle attaque `square` si, en regardant depuis `square` dans une des 8 directions,
-    // on trouve un obstacle (sautoir) ET que la case immédiatement derrière contient une sauterelle ennemie.
+    // A grasshopper attacks `square` if, looking from `square` in one of the 8 directions,
+    // we find an obstacle (hopper) AND the square immediately behind contains an enemy grasshopper.
     const int allDirs[] = {-9, -8, -7, -1, 1, 7, 8, 9};
     for (int offset : allDirs) {
         int curSq = square;
         int curX = x;
         int curY = square / 8;
 
-        // Définition des pas
+        // Definition of steps
         int stepX = 0, stepY = 0;
         if (offset == -1 || offset == -9 || offset == 7) stepX = -1;
         if (offset == 1  || offset == 9  || offset == -7) stepX = 1;
@@ -891,7 +890,7 @@ bool Board::isSquareAttacked(int square, Color attacker) const {
             if (curX < 0 || curX > 7 || curY < 0 || curY > 7) break;
 
             if (isSquareOccupied(curSq)) {
-                // On a trouvé le sautoir. Regardons la case juste DERRIÈRE le sautoir (dans la même direction)
+                // We found the hopper. Let's look at the square just BEHIND the hopper (in the same direction)
                 int behindX = curX + stepX;
                 int behindY = curY + stepY;
                 int behindSq = behindY * 8 + behindX;
@@ -899,7 +898,7 @@ bool Board::isSquareAttacked(int square, Color attacker) const {
                 if (behindX >= 0 && behindX <= 7 && behindY >= 0 && behindY <= 7) {
                     if (getBit(enemyGrasshoppers, behindSq)) return true;
                 }
-                break; // On arrête de chercher dans cette direction après le premier obstacle
+                break; // We stop searching in this direction after the first obstacle
             }
         }
     }

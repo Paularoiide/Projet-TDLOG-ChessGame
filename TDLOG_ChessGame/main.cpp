@@ -57,7 +57,7 @@ int parseSquare(const std::string& s) {
     return (s[1] - '1') * 8 + (s[0] - 'a');
 }
 
-// --- BOUCLE UCI (Pour Arena) ---
+// --- UCI LOOP (For Arena) ---
 void uci_loop() {
     Game game;
     game.startGame(Variant::Classic);

@@ -6,9 +6,9 @@
 #include <future>
 #include <random>
 
-// 1) TABLES DE POSITION (Piece-Square Tables)
+// 1) POSITION TABLES (Piece-Square Tables)
 
-// Bonus/malus suivant la case occupée. Index 0..63.
+// Bonus/malus according to the occupied square. Index 0..63.
 
 const int pawnTable[64] = {
     0,  0,  0,  0,  0,  0,  0,  0,
@@ -54,24 +54,24 @@ const int rookTable[64] = {
     0,  0,  0,  5,  5,  0,  0,  0
 };
 
-// Valeurs matérielles (tableau étendu pour les pièces “féeriques”)
+// Material values (extended array for “fairy” pieces)
 const int pieceValues[] = {
     100, 320, 330, 500, 900, 20000,
     650, 850, 400, 300
 };
 
 
-// 2) IMPLÉMENTATION DE L'INTERFACE "PLAYER"
+// 2) IMPLEMENTATION OF THE "PLAYER" INTERFACE
 
 Move AI::getMove(Game& g) {
     return getBestMove(g.board(), g.currentTurn());
 }
 
 
-// 3) ÉVALUATION (compatible pièces féeriques)
+// 3) EVALUATION (compatible fairy pieces)
 
 
-// Renvoie l'indice du bit à 1 le plus à droite (bitboard non nul)
+// Returns the index of the least significant set bit (non-zero bitboard)
 static inline int getLSB(uint64_t bb) {
 #ifdef _MSC_VER
     unsigned long index;
@@ -85,18 +85,18 @@ static inline int getLSB(uint64_t bb) {
 int MaterialAndPositionEvaluation::operator()(const Board& board) const {
     int score = 0;
 
-    // On boucle jusqu'à 10 pour inclure les pièces féeriques
+    // We loop up to 10 to include fairy pieces
     for (int p = 0; p < 10; ++p) {
         PieceType pt = static_cast<PieceType>(p);
         int val = pieceValues[p];
 
-        // --- BLANCS ---
+        // --- White ---
         Bitboard bbWhite = board.getBitboard(Color::White, pt);
         while (bbWhite) {
             int sq = getLSB(bbWhite);
             int posVal = 0;
 
-            // Bonus de position selon le type de pièce
+            // Position bonus according to the piece type
             switch(pt) {
             case PieceType::Pawn:        posVal = pawnTable[sq]; break;
             case PieceType::Knight:      posVal = knightTable[sq]; break;
@@ -110,15 +110,15 @@ int MaterialAndPositionEvaluation::operator()(const Board& board) const {
             }
 
             score += (val + posVal);
-            // supprime le bit traité
+            // remove the processed bit
             bbWhite &= (bbWhite - 1);
         }
 
-        // --- NOIRS ---
+        // --- Black ---
         Bitboard bbBlack = board.getBitboard(Color::Black, pt);
         while (bbBlack) {
             int sq = getLSB(bbBlack);
-            // miroir vertical pour utiliser les mêmes tables
+            // vertical mirror to use the same tables
             int tableIdx = sq ^ 56;
             int posVal = 0;
 
@@ -143,37 +143,37 @@ int MaterialAndPositionEvaluation::operator()(const Board& board) const {
 }
 
 
-// OUTILS : TABLE DE TRANSPOSITION (TT)
+// TOOLS: TRANSPOSITION TABLE (TT)
 
 
 void AI::storeTT(uint64_t key, int score, int depth, int alpha, int beta, Move bestMove) {
-    // On protège la TT si on fait de la recherche multi-thread
+    // We protect the TT if we do multi-threaded search
     std::lock_guard<std::mutex> lock(ttMutex);
 
-    // Index simple dans la table
+    // Simple index in the table
     size_t index = key % ttSize;
 
-    // Détermine si le score est exact ou une borne (fail-low / fail-high)
+    // Determines if the score is exact or a bound (fail-low / fail-high)
     TTFlag flag = TTFlag::EXACT;
-    if (score <= alpha)      flag = TTFlag::ALPHA; // borne haute
-    else if (score >= beta)  flag = TTFlag::BETA;  // borne basse
+    if (score <= alpha)      flag = TTFlag::ALPHA; // high bound
+    else if (score >= beta)  flag = TTFlag::BETA;  // low bound
 
     transpositionTable[index] = { key, score, depth, bestMove, flag };
 }
 
 bool AI::probeTT(uint64_t key, int depth, int alpha, int beta, int& score, Move& bestMove) {
-    // On protège la TT si on fait de la recherche multi-thread
+    // We protect the TT if we do multi-threaded search
     std::lock_guard<std::mutex> lock(ttMutex);
 
     size_t index = key % ttSize;
     const TTEntry& entry = transpositionTable[index];
 
-    // Vérifie la clé (sinon collision)
+    // Check the key (otherwise collision)
     if (entry.key == key) {
-        // Si on a un meilleur coup stocké, on le récupère
+        // If we have a better move stored, we retrieve it
         if (entry.bestMove.from != -1) bestMove = entry.bestMove;
 
-        // On n'utilise le résultat que si la profondeur stockée est suffisante
+        // We only use the result if the stored depth is sufficient
         if (entry.depth >= depth) {
             
 
@@ -195,38 +195,38 @@ bool AI::probeTT(uint64_t key, int depth, int alpha, int beta, int& score, Move&
 }
 
 
-// 4) NEGAMAX + ALPHA-BÊTA + QUIESCENCE
+// 4) NEGAMAX + ALPHA-BETA + QUIESCENCE
 
 int AI::negamax(const Board& board, int depth, int alpha, int beta, int colorMultiplier) {
     int alphaOrig = alpha;
 
-    // 1) Hash de la position
+    // 1) Hash of the position
     uint64_t hash = board.getHash();
     if (colorMultiplier == -1) {
-        // Astuce simple pour distinguer les camps si nécessaire
+        // Simple trick to distinguish sides if necessary
         hash = ~hash;
     }
 
-    // 2) Tentative dans la table de transposition
+    // 2) Attempt in the transposition table
     int ttScore;
     Move ttMove(0,0);
     if (probeTT(hash, depth, alpha, beta, ttScore, ttMove)) {
         return ttScore;
     }
 
-    // Arrêt : on passe en quiescence pour éviter l'effet horizon
+    // Stop: switch to quiescence to avoid the horizon effect
     if (depth == 0) return quiescence(board, alpha, beta, colorMultiplier);
 
     Color turn = (colorMultiplier == 1) ? Color::White : Color::Black;
     std::vector<Move> moves = board.generateLegalMoves(turn);
 
-    // Pas de coups : mat ou pat
+    // No moves: checkmate or stalemate
     if (moves.empty()) {
-        if (board.isInCheck(turn)) return -MATE_VALUE - depth; // préfère les mats rapides
+        if (board.isInCheck(turn)) return -MATE_VALUE - depth; // prefers quick mates
         return 0;
     }
 
-    // 3) Tri des coups : on essaie d'abord le coup TT, puis captures/promotions
+    // 3) Sorting moves: we try the TT move first, then captures/promotions
     auto moveSorter = [&](const Move& a, const Move& b) {
         if (ttMove.from != 0) {
             if (a.from == ttMove.from && a.to == ttMove.to) return true;
@@ -252,55 +252,55 @@ int AI::negamax(const Board& board, int depth, int alpha, int beta, int colorMul
             bestMoveFound = move;
         }
         if (score > alpha) alpha = score;
-        if (alpha >= beta) break; // coupure alpha-bêta
+        if (alpha >= beta) break; // alpha-beta cutoff
     }
 
-    // 4) Sauvegarde dans la TT
+    // 4) Saving in the TT
     storeTT(hash, maxScore, depth, alphaOrig, beta, bestMoveFound);
 
     return maxScore;
 }
 
 
-// 5) RECHERCHE À LA RACINE (LAZY SMP)
+// 5) Search from roots (Lazy SMP)
 
 Move AI::getBestMove(const Board& board, Color turn) {
    //1. Configuration
    int colorMultiplier = (turn == Color::White) ? 1 : -1;
    uint64_t rootHash = board.getHash();
    if (turn  == Color::Black) {rootHash = ~rootHash;}
-   // Limitation sur le nombre de threads
+   // Limitation on the number of threads
    int numThreads = std::thread::hardware_concurrency();
    if (numThreads < 1) numThreads = 1;
 
-   // vecteur pour stocker les taches
+   // vector to store tasks
    std::vector<std::future<void>> futures;
-   //2. Définition de la tache d'un thread
+   //2. DDefinition of a thread's task
    auto searchWorker = [&](int threadID) {
-    // Chaque thread a sa propre copie de la board
+    // Each thread has its own copy of the board
     Board threadBoard = board;
     // Iterative deepening
-    // Permet au thread de faire une recherche partielle pour remplir la TT
-    // ce qui permet aux autres threads d'elager plus efficacement
+    // Allows the thread to perform a partial search to fill the TT
+    // which allows other threads to prune more effectively
     for (int depth = 1; depth <= searchDepth; ++depth) {
         negamax(threadBoard, depth, -INF, INF, colorMultiplier);
     }
     };
-   //3. Lancement des threads secondaires
-   // On lance (N-1) threads, le main thread fait aussi une recherche
+   //3. Launching secondary threads
+   // We launch (N-1) threads, the main thread also performs a search
    for(int i = 1; i < numThreads;i++){
         futures.push_back(std::async(std::launch::async, searchWorker, i));
    }
-   //4. Recherche principale dans le thread principal
+   //4. Main search in the main thread
     searchWorker(0);
-   //5 Synchronisation des threads
+   //5 Synchronization of threads
    for(auto& f : futures){
         f.get();
    }
-   //6. Récupération des scores des coups depuis la TT
+   //6. Retrieving move scores from the TT
    std::vector<Move> moves = board.generateLegalMoves(turn);
    if (moves.empty()) {
-       return Move(0,0); // Pas de coup possible
+       return Move(0,0); // No legal moves
    }
    struct ScoredMove {
          Move move;
@@ -319,17 +319,17 @@ Move AI::getBestMove(const Board& board, Color turn) {
     for (auto& sf : scoreFutures) {
         scoredMoves.push_back(sf.get());
     }
-   //7. Tri des coups par score décroissant
+   //7. Sort moves by descending score
    std::sort(scoredMoves.begin(), scoredMoves.end(), [](const ScoredMove& a, const ScoredMove& b)
     {
           return a.score > b.score;
     });
-    //8. Choix aleatoire parmi les meilleurs coups
+    //8. Random choice among the best moves
     if (scoredMoves.size() > 1) {
         int bestScore = scoredMoves[0].score;
         int secondScore = scoredMoves[1].score;
-        // Sécurité : si le premier coup est un mat, on le choisit directement
-        // ou si le second est nettement inférieur
+        // Security: if the first move is a mate, we choose it directly
+        // or if the second is significantly lower
         bool bestIsMate = (bestScore >= 48000);
         bool hugeGap = (bestScore - secondScore) > 200;
         if(!bestIsMate && !hugeGap){
@@ -352,12 +352,12 @@ Move AI::getBestMove(const Board& board, Color turn) {
 // 6. QUIESCENCE SEARCH (From Dev)
 // ==========================================
 int AI::quiescence(const Board& board, int alpha, int beta, int colorMultiplier) {
-    // 1. Stand Pat (Evaluation statique via notre fonction compatible Fairy)
+    // 1. Stand Pat
     int stand_pat = colorMultiplier * (*evaluate)(board);
 
     if (stand_pat >= beta) return beta;
 
-    const int DELTA = 975; // Marge de sécurité
+    const int DELTA = 975; // security margin
     if (stand_pat < alpha - DELTA) {
         return alpha;
     }
@@ -365,7 +365,7 @@ int AI::quiescence(const Board& board, int alpha, int beta, int colorMultiplier)
     if (stand_pat > alpha) alpha = stand_pat;
 
     Color turn = (colorMultiplier == 1) ? Color::White : Color::Black;
-    // On génère uniquement les captures pour calmer le jeu
+    // We generate only capture moves for quiescence search
     std::vector<Move> moves = board.generateCaptures(turn); 
 
     std::sort(moves.begin(), moves.end(), [](const Move& a, const Move& b) {

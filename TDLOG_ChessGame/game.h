@@ -1,14 +1,14 @@
 #pragma once
 #include <vector>
 #include "board.h"
-#include "piece.h" // Pour l'enum Color
+#include "piece.h" // For the Color enum
 #include "move.h"
 enum class GameState { Playing, Check, Checkmate, Stalemate, Prom };
 class Game {
     Board board_;
     Color currentTurn_;
-    GameState state_{GameState::Playing}; // Nouvel état
-    int promPos; // Position du pion en cours de promotion
+    GameState state_{GameState::Playing}; // New state
+    int promPos; // Position of the pawn being promoted
 
 public:
     Game();

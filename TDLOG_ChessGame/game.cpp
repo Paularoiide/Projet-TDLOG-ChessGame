@@ -9,7 +9,7 @@ Game::Game() : board_(), currentTurn_(Color::White) {
 
 
 void Game::startGame(Variant v) {
-    board_ = Board(v); // On passe la variante au constructeur du Board
+    board_ = Board(v); // We re-initialize the board with the chosen variant
     currentTurn_ = Color::White;
 }
 
