@@ -18,10 +18,10 @@ add_executable(TDLOG_ChessGame main.cpp
     player.h
     player.cpp
     piece.h
-    variants.h
-    variants.cpp
-    variants.h
-    variants.cpp
+
+
+
+
 )
 
 include(GNUInstallDirs)
