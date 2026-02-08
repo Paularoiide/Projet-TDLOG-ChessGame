@@ -561,8 +561,8 @@ std::vector<Move> Board::generateCaptures(Color turn) const {
     int promotionRank = (turn == Color::White) ? 7 : 0;
 
     // Offsets for pawn captures ( -1 and +1 files )
-    // White captures: +7 (diag gauche), +9 (diag droite)
-    // Black captures: -9 (diag gauche), -7 (diag droite)
+    // White captures: +7 (diag left), +9 (diag right)
+    // Black captures: -9 (diag left), -7 (diag right)
     int capOffsets[] = { (turn==Color::White ? 7 : -9), (turn==Color::White ? 9 : -7) };
 
     for (int sq = 0; sq < 64; ++sq) {
