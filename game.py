@@ -378,8 +378,8 @@ class DisplayGame():
                 if self.gamemode == "AIvAI" and not self.is_quitting:
                     self.root.after(100, self.trigger_ai_turn)
                     
-            elif prefix == "END":
-                messagebox.showinfo("Fin de partie", "Partie terminée !")
+            #elif prefix == "END": This line leads to early stopping bugs
+            #    messagebox.showinfo("Fin de partie", "Partie terminée !")
                 
         except Exception:
             pass
@@ -399,8 +399,8 @@ class DisplayGame():
         if prefix == "VAL":
             self.act(data)
             self.root.after(100, self.play_AIvAI)
-        elif prefix == "END":
-            print("Fin de partie AI vs AI")
+        #elif prefix == "END": This line leads to early stopping bugs
+        #    print("Fin de partie AI vs AI")
 
 
 
