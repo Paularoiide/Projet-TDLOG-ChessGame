@@ -6,7 +6,7 @@
 
 // --- ZOBRIST KEYS (Static) ---
 // We store random numbers for [Color][Piece][Square]
-static uint64_t zPieceKeys[2][6][64];
+static uint64_t zPieceKeys[2][10][64];
 static uint64_t zEnPassantKeys[65]; // 64 squares + 1 (none)
 static uint64_t zCastleKeys[16];    // 4 rights (bitmask 0-15)
 static uint64_t zSideKey;           // For the turn (Black)
@@ -930,7 +930,7 @@ void Board::initZobristKeys() {
     std::mt19937_64 rng(123456789);
 
     for (int c = 0; c < 2; ++c) {
-        for (int p = 0; p < 6; ++p) {
+        for (int p = 0; p < 10; ++p) {
             for (int sq = 0; sq < 64; ++sq) {
                 zPieceKeys[c][p][sq] = rng();
             }
@@ -949,7 +949,7 @@ uint64_t Board::calculateHash() const {
 
     // 1. Pieces
     for (int c = 0; c < 2; ++c) {
-        for (int p = 0; p < 6; ++p) {
+        for (int p = 0; p < 10; ++p) {
             Bitboard bb = bitboards_[c][p];
             while (bb) {
                 int sq = __builtin_ctzll(bb);
