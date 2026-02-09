@@ -419,6 +419,8 @@ def find_executable(start_dir, exe_name):
 def ask_settings(root):
     """Affiche une fenêtre pour configurer la Variante ET le Mode de jeu"""
     
+    user_validated = False
+
     var_variant = tk.StringVar(value="classic")
     var_mode = tk.StringVar(value="PvP")
     var_color = tk.StringVar(value="white")
@@ -462,6 +464,8 @@ def ask_settings(root):
     var_mode.trace_add("write", update_visibility)
 
     def on_submit():
+        nonlocal user_validated
+        user_validated = True
         dialog.destroy()
         
     tk.Button(dialog, text="LANCER LA PARTIE", command=on_submit, 
@@ -469,6 +473,9 @@ def ask_settings(root):
     
     root.wait_window(dialog)
     
+    if not user_validated:
+        return None
+
     return var_variant.get(), var_mode.get(), var_color.get()
 
 if __name__== "__main__":
@@ -485,7 +492,13 @@ if __name__== "__main__":
     def launcher():
         root.withdraw()
         try:
-            variant_choice, mode_choice, color_choice = ask_settings(root)
+            settings = ask_settings(root)
+
+            if settings is None:
+                root.destroy()
+                sys.exit(0)
+
+            variant_choice, mode_choice, color_choice = settings
         except tk.TclError:
             sys.exit(0)
             
