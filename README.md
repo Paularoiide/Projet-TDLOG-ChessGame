@@ -1,5 +1,3 @@
-Projet : Jeu d'échecs et Variantes
-
 ## Project Overview
 
 This project is a Python-based chess game featuring:
@@ -45,7 +43,7 @@ Both White and Black are controlled manually
 
 -Player vs AI (Solo) :
 
-Play against an AI with an approximate strength of 1900 Elo
+Play against an AI
 You can choose to play as White or Black
 
 -AI vs AI :
